@@ -573,15 +573,13 @@ def single_run(
 
     if benzo_onset_t is not False:
         new_g_GABA_max = g_GABA_max * benzo_strength
-        change_per_ms = (new_g_GABA_max - g_GABA_max) / (benzo_wash_rate / ms) / siemens
+        change_per_ms = (new_g_GABA_max - g_GABA_max) / (benzo_wash_rate / ms)
         if change_per_ms != 0:
             lower_bound = g_GABA_max if change_per_ms > 0 else new_g_GABA_max
             upper_bound = new_g_GABA_max if change_per_ms > 0 else g_GABA_max
             clip_text = (
-                "clip(local_g_GABA_max/siemens + "
-                "wash_in*{0} - wash_out*{0},{1}/siemens,{2}/siemens)*siemens".format(
-                    change_per_ms, lower_bound, upper_bound
-                )
+                "clip(local_g_GABA_max/nS + "
+                f"wash_in*{change_per_ms/nS} - wash_out*{change_per_ms/nS},{lower_bound/nS},{upper_bound/nS})*nS"
             )
             eq = """
                 wash_in = t>=benzo_onset_t and t<=benzo_off_t
@@ -595,12 +593,12 @@ def single_run(
 
             logger.info(
                 f"benzo will be washed in over {benzo_wash_rate/second} "
-                f"(changing at {change_per_ms*siemens/nS} nS per ms), "
+                f"(changing at {change_per_ms/nS} nS per ms), "
                 f"starting at {benzo_onset_t} and washed out at {benzo_off_t}"
             )
 
-    for S in S_list:
-        S.x_S = "clip(U_0*2,0,1)"  # initial resources available
+    for _S in S_list:
+        _S.x_S = "clip(U_0*2,0,1)"  # initial resources available
 
     defaultclock.dt = dt or defaultclock.dt
 
