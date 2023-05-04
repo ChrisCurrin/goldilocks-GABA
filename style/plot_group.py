@@ -12,7 +12,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import settings
-from settings import COLOR
+from settings import COLOR, constants
 from style.axes import adjust_spines, align_axes
 from style.plot_trace import (
     plot_raster_two_pop,
@@ -295,9 +295,9 @@ def plot_hierarchy(
 
     ax_syn.axhline(color=COLOR.K, alpha=0.2, lw=0.5, linestyle=":")
 
-    sum_g_NMDA = sum(state_mon.g_NMDA, axis=1)
-    sum_g_AMPA = sum(state_mon.g_AMPA, axis=1)
-    sum_g_GABA = sum(state_mon.g_GABA, axis=1)
+    sum_g_NMDA = np.sum(state_mon.g_NMDA, axis=1)
+    sum_g_AMPA = np.sum(state_mon.g_AMPA, axis=1)
+    sum_g_GABA = np.sum(state_mon.g_GABA, axis=1)
 
     weighted = sum_g_NMDA + sum_g_AMPA - sum_g_GABA
     g_vars = {
@@ -524,9 +524,9 @@ def plot_states(
 
     ax_ps_g.axhline(color=COLOR.K, alpha=0.2, lw=0.5, linestyle=":")
 
-    sum_g_NMDA = sum(state_mon.g_NMDA, axis=1)
-    sum_g_AMPA = sum(state_mon.g_AMPA, axis=1)
-    sum_g_GABA = sum(state_mon.g_GABA, axis=1)
+    sum_g_NMDA = np.sum(state_mon.g_NMDA, axis=1)
+    sum_g_AMPA = np.sum(state_mon.g_AMPA, axis=1)
+    sum_g_GABA = np.sum(state_mon.g_GABA, axis=1)
 
     weighted = sum_g_NMDA + sum_g_AMPA - sum_g_GABA
     g_vars = {

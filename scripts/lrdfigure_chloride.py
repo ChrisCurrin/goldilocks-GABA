@@ -5,10 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from brian2 import second
 from matplotlib.cbook import flatten
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 
@@ -16,8 +14,13 @@ import settings
 from core.analysis import burst_stats
 from core.lrdfigure import MultiRunFigure
 from settings import constants, logging, time_unit
-from style.axes import (adjust_spines, colorbar_inset, colorline, letter_axes,
-                        use_scalebar)
+from style.axes import (
+    adjust_spines,
+    colorbar_inset,
+    colorline,
+    letter_axes,
+    use_scalebar,
+)
 from style.figure import new_gridspec
 from style.plot_trace import plot_state_average
 from utils.hashable import hashable
@@ -39,7 +42,7 @@ class Chloride(MultiRunFigure):
 
     def __init__(
         self,
-        tau_KCC2s=(500, 250, 100, 50),
+        tau_KCC2s=settings.TAU_KCC2_LIST[::2][:-1],
         E_Cl_0s=(-60, -88),
         g_GABAs=(50, 25, 100),
         **kwargs,
@@ -62,7 +65,7 @@ class Chloride(MultiRunFigure):
     def plot(
         self,
         timeit=True,
-        burst_window=60 * second,
+        burst_window=100,
         colorbar=False,
         histogram=True,
         **kwargs,
@@ -96,7 +99,7 @@ class Chloride(MultiRunFigure):
         self.fig, self.axs = fig, axs
 
         T = np.round(self.df.index.values[-1])
-        bin_size = 100
+        bin_size = burst_window
         bins = np.arange(0, T + bin_size, bin_size)
 
         all_rates = self.df.xs(key="r_all", level="var", axis=1, drop_level=True)
@@ -109,13 +112,7 @@ class Chloride(MultiRunFigure):
         rmax = all_rates.values.max()
         vmin = e_gaba_all.values.min()
         vmax = e_gaba_all.values.max()
-        norm = Normalize(vmin, vmax)
-        lighten = np.linspace(0.05, 1.1, len(self.E_Cl_0s))
-        egaba_c = [
-            settings.lighten_color(settings.COLOR.K, lighten[-1]),
-            settings.lighten_color(settings.COLOR.K, lighten[0]),
-        ]
-        cmap = LinearSegmentedColormap.from_list("E_GABA_cm", egaba_c)
+
         lighten_g = np.linspace(0.6, 1.3, len(self.g_GABAs))
         cp = sns.color_palette("Set1", n_colors=len(self.tau_KCC2s))
         cs = [settings.lighten_color(c, light) for c in cp for light in lighten_g]
@@ -191,8 +188,8 @@ class Chloride(MultiRunFigure):
                                     t_index,
                                     pop_rate.values,
                                     z=egaba,
-                                    cmap=cmap,
-                                    norm=norm,
+                                    cmap=settings.COLOR.EGABA_SM.get_cmap(),
+                                    norm=settings.COLOR.EGABA_SM.norm,
                                     zorder=-i,
                                     **line_kwargs,
                                     ax=ax_r,
@@ -259,17 +256,19 @@ class Chloride(MultiRunFigure):
                 # ax_gaba.spines['left'].set_linewidth(3)
                 # ax_gaba.spines['left'].set_alpha(0.1)
                 if g == 0:
+                    egaba_start_value = 0.8 * E_Cl_0 + 0.2 * -18
                     ax_gaba.annotate(
-                        f"{constants.ECL} = {E_Cl_0} mV",
-                        xy=(0, 0.8 * E_Cl_0 + 0.2 * -18),
+                        f"{constants.E_GABA} = {egaba_start_value:.1f} mV",
+                        xy=(0, egaba_start_value),
                         fontsize="large",
                         bbox=dict(boxstyle="round", fc="w", ec="w", pad=0.01),
-                        xytext=(T / 4, vmax),
+                        xytext=(T / 4, e_gaba_all.values.max()),
                         va="bottom",
+                        color=settings.COLOR.EGABA_SM.to_rgba(egaba_start_value),
                         arrowprops=dict(
                             arrowstyle="-|>",
                             connectionstyle="arc3,rad=0.2" if e == 0 else None,
-                            color=egaba_c[e],
+                            color=settings.COLOR.EGABA_SM.to_rgba(egaba_start_value),
                             ec="k",
                         ),
                     )
@@ -279,24 +278,24 @@ class Chloride(MultiRunFigure):
                         l_pop = Line2D(
                             [], [], ls="-", c=settings.COLOR.K, alpha=0.25, lw=1
                         )
-                        ax_r.legend(
-                            [l_egaba, l_pop],
-                            [f"{constants.EGABA} (mV)", "population rate (Hz)"],
-                            loc="lower left",
-                            bbox_to_anchor=(0, 1.15),
-                            frameon=False,
-                        )
-                    elif e == 1:
-                        leg = axs[g * 2 + 1, e].legend(
-                            lines[::-1],
-                            [f"{tau_KCC2}" for tau_KCC2 in self.tau_KCC2s][::-1],
-                            loc="lower left",
-                            bbox_to_anchor=(1, 0),
-                            ncol=1,
-                            columnspacing=1.0,
-                            frameon=False,
-                            title=f"{constants.TAU_KCC2} (s)",
-                        )
+                        # ax_r.legend(
+                        #     [l_egaba, l_pop],
+                        #     [f"{constants.EGABA} (mV)", "population rate (Hz)"],
+                        #     loc="lower left",
+                        #     bbox_to_anchor=(0, 1.15),
+                        #     frameon=False,
+                        # )
+                    elif e == len(self.E_Cl_0s) - 1:
+                        # leg = axs[g * 2 + 1, e].legend(
+                        #     lines[::-1],
+                        #     [f"{tau_KCC2}" for tau_KCC2 in self.tau_KCC2s][::-1],
+                        #     loc="lower left",
+                        #     bbox_to_anchor=(1, 0),
+                        #     ncol=1,
+                        #     columnspacing=1.0,
+                        #     frameon=False,
+                        #     title=f"{constants.TAU_KCC2} (s)",
+                        # )
                         # axs[g*2 + 1, e].add_artist(leg)
                         adjust_spines(ax_r, [], 0)
                     else:
@@ -321,7 +320,7 @@ class Chloride(MultiRunFigure):
                     only_mean=True,
                     colors=colors,
                     lw=2,
-                    linestyles="--",
+                    linestyles="-",
                     time_unit=time_unit,
                     auto_legend=False,
                 )
@@ -339,9 +338,12 @@ class Chloride(MultiRunFigure):
                 ax_gaba.tick_params(axis="x", bottom=False)
                 adjust_spines(ax_gaba, ["left", "bottom"], 0)
                 ax_gaba.spines["bottom"].set_visible(False)
-                yticks = np.arange(np.round(-75), vmax, 5)
+                yticks = np.arange(np.round(-75), vmax, 5, dtype=int)
                 ax_gaba.set_yticks(yticks, minor=True)
                 ax_gaba.set_yticks(yticks[1::2])
+                if g == 0:
+                    ax_gaba.set_yticklabels(yticks[1::2])
+                ax_gaba.set_xlim([0, T])
                 ax_gaba.grid(True, "both", "both", zorder=-99)
 
                 if e == 0:
@@ -356,17 +358,17 @@ class Chloride(MultiRunFigure):
                         hidex=False,
                         hidey=False,
                         loc="center left",
-                        bbox_to_anchor=(-0.1, 0.5),
+                        bbox_to_anchor=(-0.1, 0.1),
                     )
                     sb.ylabel._text.set_fontsize("small")
-                    sb.ylabel._text.set_rotation(90)
+                    sb.ylabel._text.set_rotation(0)
                     sb.ylabel.set_text("10 Hz")
                     sb = use_scalebar(
                         ax_r,
                         matchy=False,
                         sizey=0,
                         matchx=False,
-                        sizex=100,
+                        sizex=burst_window,
                         hidex=False,
                         hidey=False,
                         loc="upper left",
@@ -392,8 +394,7 @@ class Chloride(MultiRunFigure):
                         c=c,
                     )
 
-                elif e == 1:
-                    # ax_gaba.set_yticklabels([])
+                else:
                     ax_gaba.set_ylabel("")
                     c = settings.lighten_color(settings.COLOR.K, lighten_g[g])
                     ax_gaba.annotate(
@@ -410,13 +411,12 @@ class Chloride(MultiRunFigure):
 
                 if colorbar:
                     logger.debug(f"creating colorbar for E_Cl_0={E_Cl_0}")
-                    cm = ScalarMappable(norm=norm, cmap=cmap)
                     from matplotlib.colorbar import Colorbar
 
-                    cb: Colorbar = colorbar_inset(cm, ax=ax_r)
+                    cb: Colorbar = colorbar_inset(settings.COLOR.EGABA_SM, ax=ax_r)
                     cb.set_label(ax_gaba.get_ylabel())
                     ax_gaba.set_ylabel("")
-                    ax_gaba.set_ylim(cm.get_clim())
+                    ax_gaba.set_ylim(settings.COLOR.EGABA_SM.get_clim())
                     ax_gaba.set_yticks([])
                 all_lines += lines
 
@@ -496,6 +496,7 @@ class Chloride(MultiRunFigure):
         tau_kcc2s_leg_v = [None] * len(self.tau_KCC2s) * (len(self.g_GABAs) - 1) + [
             (f"{tau_KCC2}") for tau_KCC2 in self.tau_KCC2s
         ]
+        g_gaba_str = " ".join([f"{g:.0f}" for g in self.g_GABAs])
         leg = axs[-1, 0].legend(
             all_lines,
             tau_kcc2s_leg_v,
@@ -503,7 +504,8 @@ class Chloride(MultiRunFigure):
             bbox_to_anchor=(-0.0, 1),
             ncol=len(self.g_GABAs),
             columnspacing=-2.5,
-            handlelength=0.1,
+            handlelength=1,
+            handleheight=1,
             handletextpad=3.8,
             labelspacing=0.3,
             borderaxespad=0.0,
@@ -511,12 +513,12 @@ class Chloride(MultiRunFigure):
             frameon=True,
             facecolor="w",
             edgecolor="None",
-            title=f"{constants.G_GABA} (nS)\n25  50 100  {constants.TAU_KCC2} (s)   ",
+            title=f"{constants.G_GABA} (nS)\n{g_gaba_str}  {constants.TAU_KCC2} (s)   ",
             title_fontsize="small",
         )
 
         for txt in leg.get_texts():
-            txt.set_ha("right")
+            txt.set_ha("left")
 
         # add block colours to bottom of plot
         all_lines_reorder = []
@@ -547,11 +549,20 @@ class Chloride(MultiRunFigure):
             ax_i.set_xlim([0, T])
             ax_i.set_xticklabels([])
 
-        letter_axes(axs[::2, 0], xy=(-0.1, 1), ha="right", va="bottom")
+        for _ax in axs[::2, 0]:
+            letter_axes(
+                _ax,
+                xy=(0, _ax.get_position().y0),
+                xycoords="figure fraction",
+                ha="left",
+                va="bottom",
+            )
 
         for ax_i in axs[-1, :]:
             ax_i.set_xlabel(f"{constants.TIME} bin" + " (%s)" % time_unit)
-            # ax_i.set_xticks(list(range(0, T+bin_size, bin_size)))
+            ax_i.set_xticklabels(
+                [f"{t}" for t in np.arange(0, T + bin_size, bin_size, dtype=int)]
+            )
 
         fig.align_labels(axs=list(flatten(axs)))
 

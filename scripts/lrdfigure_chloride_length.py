@@ -71,7 +71,7 @@ class ChlorideLength(MultiRunFigure):
     def plot(
         self,
         timeit=True,
-        burst_window=60 * second,
+        burst_window=60,
         colorbar=False,
         histogram=True,
         **kwargs,
@@ -94,9 +94,9 @@ class ChlorideLength(MultiRunFigure):
             nrows=gridspec["height_ratios"].__len__(),
             ncols=ncols,
             grid_kwargs=gridspec,
-            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_FULL_no_cap),
+            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
         )
-        gs.update(top=0.95, bottom=0.05, left=0.1, right=0.93, hspace=0.35, wspace=0.1)
+        gs.update(top=0.9, bottom=0.1, left=0.1, right=0.93, hspace=0.35, wspace=0.2)
 
         axs = np.empty(shape=(len(self.g_GABAs) * 2, ncols), dtype=plt.Axes)
 
@@ -106,7 +106,7 @@ class ChlorideLength(MultiRunFigure):
         self.fig, self.axs = fig, axs
 
         T = np.round(self.df.index.values[-1])
-        bin_size = 100
+        bin_size = burst_window
         bins = np.arange(0, T + bin_size, bin_size)
 
         all_rates = self.df.xs(key="r_all", level="var", axis=1, drop_level=True)
@@ -258,6 +258,10 @@ class ChlorideLength(MultiRunFigure):
                 ax_r.set_xlim(0, T)
                 if g == 0 and len_idx == 0:
                     ax_r.set_xticks(np.arange(0, T + bin_size, bin_size))
+                if g == 0:
+                    ax_gaba.set_title(
+                        f"{length} ({constants.MICROMETERS})", fontsize="medium"
+                    )
                 ax_r.set_ylim(0, rmax + y_spacing * (i + off_i))
 
                 # adjust_spines(ax_r, ['left', 'bottom'], 0)
@@ -309,9 +313,10 @@ class ChlorideLength(MultiRunFigure):
                 ax_gaba.tick_params(axis="x", bottom=False)
                 adjust_spines(ax_gaba, ["left", "bottom"], 0)
                 ax_gaba.spines["bottom"].set_visible(False)
-                yticks = np.arange(np.round(-75), vmax, 5)
+                yticks = np.arange(np.round(-75), vmax, 5, dtype=int)
                 ax_gaba.set_yticks(yticks, minor=True)
                 ax_gaba.set_yticks(yticks[1::2])
+                ax_gaba.set_yticklabels(yticks[1::2])
                 ax_gaba.grid(True, "both", "both", zorder=-99)
 
                 if len_idx == 0:
@@ -435,6 +440,7 @@ class ChlorideLength(MultiRunFigure):
                 zorder=5,  # one tail of errorbar
                 data=df_num_bursts[df_num_bursts["length"] == length],
                 ax=axs[-1, len_idx],
+                legend=False,
             )
             # sns.boxplot(x='bin', y=num_bursts_col, hue='KCC2 g_GABA',
             #             hue_order=[f"{k:.0f} {g:.0f}" for k in self.tau_KCC2s for g in self.g_GABAs],
@@ -470,6 +476,8 @@ class ChlorideLength(MultiRunFigure):
         tau_kcc2s_leg_v = [None] * len(self.tau_KCC2s) * (len(self.g_GABAs) - 1) + [
             (f"{tau_KCC2}") for tau_KCC2 in self.tau_KCC2s
         ]
+        g_gaba_str = " ".join([f"{g:.0f}" for g in self.g_GABAs])
+
         leg = axs[-1, 0].legend(
             all_lines,
             tau_kcc2s_leg_v,
@@ -485,7 +493,7 @@ class ChlorideLength(MultiRunFigure):
             frameon=True,
             facecolor="w",
             edgecolor="None",
-            title=f"{constants.G_GABA} (nS)\n25  50 100  {constants.TAU_KCC2} (s)   ",
+            title=f"{constants.G_GABA} (nS)\n{g_gaba_str}  {constants.TAU_KCC2} (s)   ",
             title_fontsize="small",
         )
 
@@ -521,11 +529,16 @@ class ChlorideLength(MultiRunFigure):
             ax_i.set_xlim([0, T])
             ax_i.set_xticklabels([])
 
-        letter_axes(axs[::2, 0], xy=(-0.1, 1), ha="right", va="bottom")
+        for _ax in axs[::2, 0]: 
+            letter_axes(
+                _ax, xy=(0, _ax.get_position().y0), xycoords="figure fraction", ha="left", va="bottom"
+            )
 
         for ax_i in axs[-1, :]:
             ax_i.set_xlabel(f"{constants.TIME} bin" + " (%s)" % time_unit)
-            # ax_i.set_xticks(list(range(0, T+bin_size, bin_size)))
+            ax_i.set_xticklabels(
+                [f"{t}" for t in np.arange(0, T + bin_size, bin_size, dtype=int)]
+            )
 
         fig.align_labels(axs=list(flatten(axs)))
 
@@ -546,7 +559,15 @@ class ChlorideLength(MultiRunFigure):
 
 
 if __name__ == "__main__":
-    cl = ChlorideLength(seeds=(None,))
+    cl = ChlorideLength(
+        g_GABAs=(50, 25, 100),
+        seeds=(
+            None,
+            1038,
+            1337,
+            1111,
+        ),
+    )
     cl.run(duration=600)
     cl.plot(timeit=True, colorbar=False)
     if settings.SAVE_FIGURES:

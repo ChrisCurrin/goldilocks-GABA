@@ -55,7 +55,6 @@ if not (man_connections or man_weights):
         build_on_run=False,
         debug=device_debug,
     )
-    # prefs.devices.cpp_standalone.openmp_threads = 6
 celsius_temp = 37  # Temperature
 T = celsius_temp * kelvin + zero_celsius
 rt_f = R * T / F
@@ -136,6 +135,7 @@ def single_run(
     nrn_idx_i=None,  # Brian2 args
     run_seed=None,
     __plot=False,
+    __device_directory=None,
 ):
     sim_name = get_sim_name(**locals())
     if __monitors is None:
@@ -146,11 +146,12 @@ def single_run(
     sum_time = 0
     __facilitation = True  # disable by setting tau_f to 0
 
-    logger.debug(sim_name)
+    logger.info(sim_name)
     file_name = path.join("temp", sim_name + ".npz")
     if path.exists(file_name):
         set_device("runtime")
     else:
+        device_directory = __device_directory or ".cpp"
         set_device(
             "cpp_standalone",
             directory=device_directory,
@@ -653,13 +654,18 @@ def single_run(
                         S.w[:p0_idx] = w_val
                 else:
                     S.w = w_val
-                logger.info("{}: # that are >0 = {:.0f}".format(S_name, sum(S.w > 0.0)))
-                logger.info("{}: # that are >1 = {:.0f}".format(S_name, sum(S.w > 1.0)))
+                logger.info("{}: # that are >0 = {:.0f}".format(S_name, np.sum(S.w > 0.0)))
+                logger.info("{}: # that are >1 = {:.0f}".format(S_name, np.sum(S.w > 1.0)))
             net.run(static_conn_dt, report="text")
     else:
         run(duration, report="text")
     if __build and get_device() == all_devices["cpp_standalone"]:
-        device.build(directory=device_directory, debug=device_debug)
+        try:
+            device.build(directory=device_directory, debug=device_debug)
+        except RuntimeError as e:
+            logger.error(e)
+            logger.error("rebuilding with clean=True")
+            device.build(directory=device_directory, debug=device_debug, clean=True)
 
     run_time = time.time()
     run_dt = run_time - run_time_start

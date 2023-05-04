@@ -19,6 +19,16 @@ time_unit = second
 RASTERIZED = False  # True for faster rendering/saving
 SAVE_FIGURES = True
 
+_fp = np.log2(15) % 1  # just get the fractional part
+# 2**3.9069 == 15
+# 2**7.9069 == 240
+# 2**8.9069 == 480
+TAU_KCC2_LIST = [
+    int(g) for g in np.logspace(start=3 + _fp, stop=7 + _fp, base=2, num=9)
+]
+# TAU_KCC2_LIST = [int(g) for g in np.logspace(start=3+_fp, stop=8+_fp, base=2, num=11)]
+G_GABA_LIST = [25, 50, 100, 200]
+
 # ----------------------------------------------------------------------------------------------------------------------
 # SET LOGGER
 # ----------------------------------------------------------------------------------------------------------------------
@@ -132,7 +142,7 @@ def lighten_color(color, amount=0.5):
 
     try:
         c = mc.cnames[color]
-    except KeyError:
+    except (KeyError, TypeError):
         c = color
     hue, lum, sat = colorsys.rgb_to_hls(*mc.to_rgb(c))
     lum = 1 - amount * (1 - lum)

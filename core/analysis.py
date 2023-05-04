@@ -10,6 +10,8 @@ from matplotlib import pyplot as plt
 
 logger = logging.getLogger("analysis")
 
+# suppress numpy warnings
+np.seterr(all="ignore")
 
 def spikes_to_rate(spk_mon, time_unit=ms, bin_width=10 * ms):
     """

@@ -430,7 +430,7 @@ class Explain(LRDFigure):
 
         for ax_i in ax[:-1, 0]:
             ax_i.xaxis.label.set_visible(False)
-        ax[-1, 0].set_xlabel(f"{settings.TIME}" + " (%s)" % time_unit)
+        ax[-1, 0].set_xlabel(f"{constants.TIME}" + " (%s)" % time_unit)
         fig.align_ylabels(list(flatten(ax)))
         plot_time = time.time()
         plot_dt = plot_time - plot_time_start

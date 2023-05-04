@@ -13,7 +13,7 @@ from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap
 
 import settings
-from settings import COLOR
+from settings import COLOR, constants
 from style.axes import adjust_spines, colorbar_inset, create_zoom
 
 logger = logging.getLogger("brian2viz")
@@ -162,8 +162,8 @@ def plot_population_rates(
             )
         _rate = rate_mon.smooth_rate(**smooth_rate_args) if smooth else rate_mon.rate
 
-        if rate_mon.name in settings.POPULATION_RATE_MAP:
-            label = settings.POPULATION_RATE_MAP[rate_mon.name]
+        if rate_mon.name in constants.POPULATION_RATE_MAP:
+            label = constants.POPULATION_RATE_MAP[rate_mon.name]
         else:
             label = rate_mon.name
         plot_rate(
@@ -304,9 +304,9 @@ def plot_conductances(
     )
     ax.set(ylabel="conductance (nS)")
 
-    sum_g_NMDA = sum(state_mon.g_NMDA, axis=1)
-    sum_g_AMPA = sum(state_mon.g_AMPA, axis=1)
-    sum_g_GABA = sum(state_mon.g_GABA, axis=1)
+    sum_g_NMDA = np.sum(state_mon.g_NMDA, axis=1)
+    sum_g_AMPA = np.sum(state_mon.g_AMPA, axis=1)
+    sum_g_GABA = np.sum(state_mon.g_GABA, axis=1)
 
     net_g = sum_g_NMDA + sum_g_AMPA - sum_g_GABA
     g_vars = {
@@ -625,7 +625,7 @@ def plot_synaptic_variables(
                 _full_calc,
                 linestyle="-",
                 color=COLOR.CONN_dict[s_name],
-                label=settings.CONNECTION_MAP[s_name],
+                label=constants.CONNECTION_MAP[s_name],
                 rasterized=settings.RASTERIZED,
                 **kwargs,
             )
@@ -670,23 +670,23 @@ def plot_synaptic_variables(
             )
     if ax_x and ax_u:
         xs_label = (
-            settings.VESICLES_LONG.replace("\n", "(%)\n")
+            constants.VESICLES_LONG.replace("\n", "(%)\n")
             if perc
-            else settings.VESICLES_LONG
+            else constants.VESICLES_LONG
         )
         us_label = (
-            settings.EFFICACY_LONG.replace("\n", "(%)\n")
+            constants.EFFICACY_LONG.replace("\n", "(%)\n")
             if perc
-            else settings.EFFICACY_LONG
+            else constants.EFFICACY_LONG
         )
     else:
-        xs_label = settings.VESICLES_TEXT
-        us_label = settings.EFFICACY_TEXT
+        xs_label = constants.VESICLES_TEXT
+        us_label = constants.EFFICACY_TEXT
         if perc:
             xs_label += " (%)"
             us_label += " (%)"
     w_label = (
-        settings.WEIGHT_LONG.replace("\n", "(%)\n") if perc else settings.WEIGHT_LONG
+        constants.WEIGHT_LONG.replace("\n", "(%)\n") if perc else constants.WEIGHT_LONG
     )
     if ax_x != ax_u:
         if ax_x is not None:

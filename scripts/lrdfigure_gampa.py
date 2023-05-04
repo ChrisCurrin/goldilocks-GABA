@@ -1,16 +1,26 @@
 import itertools
 import time
 from collections import OrderedDict
+from matplotlib.colors import Normalize
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.lines import Line2D
+from tqdm import tqdm
 
 from core.analysis import burst_stats
 from core.lrdfigure import MultiRunFigure
-from settings import constants, logging, time_unit
+from settings import (
+    constants,
+    lighten_color,
+    logging,
+    time_unit,
+    PAGE_W_FULL,
+    PAGE_H_half,
+)
+from style.axes import colorline
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +41,7 @@ class Params(MultiRunFigure):
         self,
         gGABAs=(50.0,),
         gAMPAs=(5.0,),
+        gNMDAs=(5.0,),
         time_per_value=60,
         EGABA_0=-74,
         EGABA_end=-40,
@@ -39,6 +50,12 @@ class Params(MultiRunFigure):
     ):
         self.gGABAs = gGABAs
         self.gAMPAs = gAMPAs
+        self.gNMDAs = gNMDAs
+        # remove 0 values
+        self.gGABAs = tuple(g for g in self.gGABAs if g > 0)
+        self.gAMPAs = tuple(g for g in self.gAMPAs if g > 0)
+        self.gNMDAs = tuple(g for g in self.gNMDAs if g > 0)
+
         self.time_per_value = time_per_value
         self.EGABA_0 = EGABA_0
         self.EGABA_end = EGABA_end
@@ -51,7 +68,7 @@ class Params(MultiRunFigure):
         diff = EGABA_end - EGABA_0
         values = diff // mv_step
         self.num_ecl_steps = num_ecl_steps = values - 1
-        duration = values * time_per_value
+        self.duration = duration = values * time_per_value
         ecl_0 = round((EGABA_0 - phco3 * ehco3) / pcl, 2)
         ecl_end = round((EGABA_end - phco3 * ehco3) / pcl, 2)
 
@@ -64,6 +81,7 @@ class Params(MultiRunFigure):
             OrderedDict(
                 g_GABA_max={"range": self.gGABAs, "title": constants.G_GABA},
                 g_AMPA_max={"range": self.gAMPAs, "title": constants.G_AMPA},
+                g_NMDA_max={"range": self.gNMDAs, "title": constants.G_NMDA},
             ),
             default_params=dict(
                 manual_cl=manual_cl, duration=duration, num_ecl_steps=num_ecl_steps
@@ -86,15 +104,17 @@ class Params(MultiRunFigure):
                 constants.EGABA,
                 constants.G_GABA,
                 constants.G_AMPA,
+                constants.G_NMDA,
                 "Burst start time (s)",
             ]
         )
 
-        for gGABA, gAMPA, run_idx in itertools.product(
-            self.gGABAs, self.gAMPAs, run_idxs
+        for gGABA, gAMPA, gNMDA, run_idx in tqdm(
+            list(itertools.product(self.gGABAs, self.gAMPAs, self.gNMDAs, run_idxs)),
+            desc="processing bursts",
         ):
-            df_egaba = self.df[gGABA, gAMPA, run_idx, "E_GABA_all"]
-            df_rates = self.df[gGABA, gAMPA, run_idx, "r_all"]
+            df_egaba = self.df[gGABA, gAMPA, gNMDA, run_idx, "E_GABA_all"]
+            df_rates = self.df[gGABA, gAMPA, gNMDA, run_idx, "r_all"]
             burst_start_ts, burst_end_ts = burst_stats(
                 df_rates, rate_std_thresh=3, time_unit=time_unit, plot_fig=False
             )
@@ -118,32 +138,46 @@ class Params(MultiRunFigure):
                         egaba,
                         gGABA,
                         gAMPA,
+                        gNMDA,
                         start_t,
                     ]
                 if len(burst_ts) == 0:
-                    # add expected observations
-                    df_g_E.loc[df_g_E.shape[0]] = [run_idx, egaba, gGABA, gAMPA, np.nan]
+                    # add expected observations so there is always an entry
+                    df_g_E.loc[df_g_E.shape[0]] = [
+                        run_idx,
+                        egaba,
+                        gGABA,
+                        gAMPA,
+                        gNMDA,
+                        np.nan,
+                    ]
 
         # analysis
-        df_g_E["bin"] = pd.cut(
-            df_g_E["Burst start time (s)"],
-            bins=np.append(bins, bins[-1] + bin_size),
-            labels=bins.astype(int),
-        )
+        # df_g_E["bin"] = pd.cut(
+        #     df_g_E["Burst start time (s)"],
+        #     bins=np.append(bins, bins[-1] + bin_size),
+        #     labels=bins.astype(int),
+        # )
 
         num_bursts_col = f"Number of bursts\n(per {bin_size} s)"
         df_g_E_bursts = (
             df_g_E.groupby(
-                [constants.EGABA, constants.G_GABA, constants.G_AMPA, "bin", "run_idx"]
+                [
+                    constants.EGABA,
+                    constants.G_GABA,
+                    constants.G_AMPA,
+                    constants.G_NMDA,
+                    "run_idx",
+                ],
+                as_index=False,
             )
-            .size()
-            .to_frame()
-            .reset_index()
-            .rename(columns={0: num_bursts_col})
+            .count()
+            .rename(columns={"Burst start time (s)": num_bursts_col})
         )
+        # df_g_E_bursts[num_bursts_col] = df_g_E_bursts[num_bursts_col].fillna(0)/bin_size/len(self.seeds)
         df_g_E_bursts["hyperpolaring\nEGABA"] = pd.cut(
             df_g_E_bursts[constants.EGABA],
-            bins=[-100, self.vcenter, 0],
+            bins=[-100, -55, 0],
             labels=[True, False],
         )
 
@@ -156,7 +190,9 @@ class Params(MultiRunFigure):
         logger.info("plotting")
         plot_time_start = time.time()
 
-        self.plot_gampa()
+        self.plot_gampa(**kwargs)
+
+        self.plot_rate_example(**kwargs)
 
         plot_time = time.time()
         plot_dt = plot_time - plot_time_start
@@ -164,128 +200,270 @@ class Params(MultiRunFigure):
             logger.info("took {:.2f}s to plot".format(plot_dt))
         return self
 
-    def plot_gampa(self, ax=None, single_plot=False):
-        if ax is None:
-            fig, ax = plt.subplots(1 + int(single_plot), sharex=True, sharey=True)
+    def plot_rate_example(self, **kwargs):
+        logger.info("plotting rate example")
+
+        fig, axes = plt.subplot_mosaic(
+            [[f"rates_color_{g}"] for g in self.gNMDAs],
+            # subplot_kw={"sharex": "all", "sharey": "all"},
+            figsize=(PAGE_W_FULL, PAGE_H_half),
+        )
+        gGABA = self.gGABAs[1]
+        gAMPA = self.gAMPAs[0]
+
+        run_idx = 0
+
+        r_all = self.df.xs(key="r_all", level="var", axis=1, drop_level=True).values
+        r_norm = norm = Normalize(r_all.min(), r_all.max())
+
+        bins = np.arange(0, self.duration, self.time_per_value)
+        bin_size = self.time_per_value
+        for gNMDA in self.gNMDAs:
+            ax = axes[f"rates_color_{gNMDA}"]
+            df_egaba = self.df[gGABA, gAMPA, gNMDA, run_idx, "E_GABA_all"]
+            df_rates = self.df[gGABA, gAMPA, gNMDA, run_idx, "r_all"]
+
+            # plot rates with color as egaba
+            vmin = df_egaba.values.min()
+            vmax = df_egaba.values.max()
+            norm = Normalize(vmin, vmax)
+
+            colorline(
+                df_rates.index,
+                df_rates.values,
+                z=df_egaba.values,
+                cmap="coolwarm",
+                norm=norm,
+                linewidth=0.5,
+                ax=ax,
+            )
+
+            ax.set_ylabel("Population rate (Hz)")
+            if gNMDA == self.gNMDAs[-1]:
+                ax.set_xlabel("Time (s)")
+            ax.set_title(
+                f"gGABA={gGABA}, gAMPA={gAMPA}, gNMDA={gNMDA}",
+                fontsize="small",
+                va="top",
+            )
+
+        # set x and y lims
+        for ax_name, ax in axes.items():
+            ax.set_xlim(0, self.duration)
+            ax.set_ylim(0, r_norm.vmax)
+            # add grid according to bins
+            ax.set_xticks(bins, minor=True)
+            ax.grid(True, axis="x", which="minor", alpha=0.5, linestyle="--")
+
+        self.sim_name, prev_sim_name = "rates_example", self.sim_name
+        self.save_figure(figs=[fig], use_args=True)
+        self.sim_name = prev_sim_name
+
+    def plot_gampa(self, axes=None, egaba_as_row=True, egabas=(-48, -56)):
+        # check egaba in num_ecl_steps
+        run_egaba = np.arange(self.EGABA_0, self.EGABA_end, self.mv_step).round(2)
+        round_egabas = np.round(egabas, 2)
+        assert np.all(
+            np.isin(round_egabas, run_egaba)
+        ), f"egabas={egabas} not all in run_egaba={run_egaba}"
+
+        if axes is None:
+            fig, axes = plt.subplots(
+                len(egabas) if egaba_as_row else 1,
+                ncols=len(self.gNMDAs),
+                squeeze=False,
+                sharex=True,
+                sharey=True,
+            )
+            self.fig = fig
+        df_g_E = self.df_g_E
         df_g_E_bursts = self.df_g_E_bursts
         num_bursts_col = self.num_bursts_col
 
+        df_g_E_bursts[constants.G_AMPA] = df_g_E_bursts[constants.G_AMPA].astype(int)
+        df_g_E_bursts[constants.G_GABA] = df_g_E_bursts[constants.G_GABA].astype(int)
+        df_g_E_bursts[constants.G_NMDA] = df_g_E_bursts[constants.G_NMDA].astype(float)
+
+        # concat as string
+        # df_g_E_bursts["AMPA+NMDA"] = df_g_E_bursts[
+        #     [constants.G_NMDA, constants.G_AMPA]
+        # ].apply(lambda x: f"{x[0]:.1f} | {x[1]}", axis=1)
+        df_g_E_bursts["AMPA+NMDA"] = (
+            df_g_E_bursts[constants.G_NMDA].astype(str)
+            + "|"
+            + df_g_E_bursts[constants.G_AMPA].astype(str)
+        )
+        # sort by AMPA+NMDA
+        # df_g_E_bursts = df_g_E_bursts.sort_values(["AMPA+NMDA"])
+
+        lighten_g_nmda = np.linspace(0.6, 1.3, len(self.gNMDAs))
+        cp = sns.color_palette("Set1", n_colors=len(self.gAMPAs))
+        cs = [lighten_color(c, light) for c in cp for light in lighten_g_nmda]
+        # cs_arr = np.array(cs).reshape(len(self.gAMPAs), len(self.gNMDAs), 3)
+
         # bursts v G with G_AMPA
-        if single_plot:
+        for (g, g_nmda), (e, egaba) in itertools.product(
+            enumerate(sorted(self.gNMDAs)), enumerate(egabas)
+        ):
+            pal = "YlOrRd_r" if egaba >= -48 else "YlGnBu_r"
+            errcolor = "r" if egaba >= -48 else "b"
             sns.barplot(
                 x=constants.G_GABA,
                 y=num_bursts_col,
+                # hue="AMPA+NMDA",
+                # hue_order=order,
                 hue=constants.G_AMPA,
                 hue_order=sorted(
-                    df_g_E_bursts[constants.G_AMPA].unique(), reverse=True
+                    df_g_E_bursts[constants.G_AMPA].unique(), reverse=False
                 ),
-                # err_style='band', err_kws=dict(alpha=0.01, ),
+                # err_style='band',
+                errcolor=errcolor,
                 errwidth=0.5,
                 orient="v",
-                palette="YlOrRd_r",
-                data=df_g_E_bursts[df_g_E_bursts[constants.EGABA] >= -55],
-                ax=ax,
-            )
-            leg = ax.legend(
-                ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
-                loc=(0, 0.9),
-                handlelength=0.5,
-                handletextpad=0.0,
-                columnspacing=0.5,
-                mode="expand",
-                fontsize="xx-small",
-                frameon=False,
-                title=f"{constants.G_AMPA} (ns)",
-                title_fontsize="small",
-            )
-            ax.add_artist(leg)
-            sns.barplot(
-                x=constants.G_GABA,
-                y=num_bursts_col,
-                hue=constants.G_AMPA,
-                hue_order=sorted(
-                    df_g_E_bursts[constants.G_AMPA].unique(), reverse=True
-                ),
-                # err_style='band', err_kws=dict(alpha=0.01, ),
-                errwidth=0.5,
-                orient="v",
-                palette="YlGnBu_r",
-                data=df_g_E_bursts[df_g_E_bursts[constants.EGABA] <= -55],
-                ax=ax,
-            )
-            lines = [
-                Line2D([], [], c=sns.color_palette("Reds", 1)[0]),
-                Line2D([], [], c=sns.color_palette("Blues", 1)[0]),
-            ]
-            labels = ["depolarising", "hyperpolarising"]
-            ax.legend(
-                lines,
-                labels,
-                ncol=1,
-                loc=(1, 0),
-                fontsize="x-small",
-                frameon=False,
-                title=f"{constants.EGABA}",
-                title_fontsize="small",
-            )
-        else:
-            sns.barplot(
-                x=constants.G_AMPA,
-                y=num_bursts_col,
-                hue=constants.G_GABA,
-                hue_order=sorted(
-                    df_g_E_bursts[constants.G_GABA].unique(), reverse=False
-                ),
-                # err_style='band', err_kws=dict(alpha=0.01, ),
-                errwidth=0.5,
-                orient="v",
-                palette="Greens",
-                alpha=0.5,
+                palette=pal,
+                # palette=cs,
                 data=df_g_E_bursts[
-                    (df_g_E_bursts[constants.EGABA] == -56)
-                    & (df_g_E_bursts[constants.G_GABA] >= 0)
+                    (df_g_E_bursts[constants.EGABA] == egaba)
+                    & (df_g_E_bursts[constants.G_NMDA] == g_nmda)
                 ],
-                ax=ax[0],
+                ax=axes[e, g],
             )
-            leg = ax[0].legend(
-                ncol=len(df_g_E_bursts[constants.G_GABA].unique()),
-                loc=(0, 0.9),
-                handlelength=0.5,
-                handletextpad=0.0,
-                columnspacing=0.5,
-                fontsize="xx-small",
-                frameon=False,
-                title=f"{constants.G_GABA} (ns)",
-                title_fontsize="small",
-            )
-            sns.barplot(
-                x=constants.G_AMPA,
-                y=num_bursts_col,
-                hue=constants.G_GABA,
-                # hue_order=sorted(df_g_E_bursts[constants.G_GABA].unique(), reverse=True),
-                # err_style='band', err_kws=dict(alpha=0.01, ),
-                errwidth=0.5,
-                orient="v",
-                palette="Greens",
-                zorder=-99,
-                alpha=0.5,
-                data=df_g_E_bursts[
-                    (df_g_E_bursts[constants.EGABA] == -48)
-                    & (df_g_E_bursts[constants.G_GABA] >= 0)
-                ],
-                ax=ax[1],
-            )
-            ax[1].legend().remove()
+            # remove legend
+            axes[e, g].get_legend().remove()
+
+            # y label
+            if g == 0:
+                axes[e, g].set_ylabel(num_bursts_col)
+                # annotate egaba
+                axes[e, g].annotate(
+                    f"EGABA = {egaba:.0f}",
+                    xy=(0.0, 1.0),
+                    xycoords="axes fraction",
+                    xytext=(0, 5),
+                    textcoords="offset points",
+                    ha="right",
+                    va="bottom",
+                    fontsize="small",
+                )
+            else:
+                axes[e, g].set_ylabel("")
+
+            # title
+            if e == 0:
+                axes[e, g].set_title(f"{g_nmda} nS", fontsize="small")
+
+            # x label
+            if e == len(axes) - 1:
+                axes[e, g].set_xlabel(f"{constants.G_GABA} (ns)")
+            else:
+                axes[e, g].set_xlabel("")
+
+        leg = axes[0, 0].legend(
+            ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
+            loc="upper left",
+            bbox_to_anchor=(0, 1.0),
+            handlelength=1,
+            handletextpad=0,
+            columnspacing=0,
+            # mode="expand",
+            fontsize="x-small",
+            frameon=False,
+            title=f"{constants.G_AMPA} (ns)",
+            title_fontsize="small",
+        )
+
+        x_off = 8 * len(self.gNMDAs)
+        y_off = 20 * len(egabas)
+
+        # align legend labels to be above the handles
+        for t, h in zip(leg.texts, leg.legend_handles):
+            t.set_ha("center")
+            t.set_position((t.get_position()[0] - x_off, t.get_position()[1] - y_off))
+        axes[0, 0].add_artist(leg)
+
+        leg = axes[-1, 0].legend(
+            ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
+            loc="upper left",
+            bbox_to_anchor=(0, 1.0),
+            handlelength=1,
+            handletextpad=0,
+            columnspacing=0,
+            # mode="expand",
+            fontsize="x-small",
+            frameon=False,
+            title=f"{constants.G_AMPA} (ns)",
+            title_fontsize="small",
+        )
+        # align legend labels to be above the handles
+        for t, h in zip(leg.texts, leg.legend_handles):
+            t.set_ha("center")
+            t.set_position((t.get_position()[0] - x_off, t.get_position()[1] - y_off))
+
+        lines = [
+            Line2D([], [], c=sns.color_palette("Reds", 1)[0]),
+            Line2D([], [], c=sns.color_palette("Blues", 1)[0]),
+        ]
+        labels = ["depolarising", "hyperpolarising"]
+        axes[0, 0].legend(
+            lines,
+            labels,
+            ncol=1,
+            loc="lower right",
+            bbox_to_anchor=(1, 1),
+            fontsize="x-small",
+            frameon=False,
+            title=f"{constants.EGABA}",
+            title_fontsize="small",
+        )
+        # g = sns.displot(
+        #     x=constants.G_AMPA,
+        #     y=constants.G_GABA,
+        #     # y=num_bursts_col,
+        #     hue="EGABA",
+        #     hue_order=sorted(
+        #         df_g_E["EGABA"].unique(),
+        #     ),
+        #     palette="coolwarm",
+        #     # alpha=1,
+        #     data=df_g_E,
+        # )
+        # self.save_figure(figs=[g.figure], close=True)
+        # joint_figs = []
+        # for g_gaba in df_g_E_bursts[constants.G_GABA].unique():
+        #     g = sns.jointplot(
+        #         data=df_g_E_bursts[df_g_E_bursts[constants.G_GABA] == g_gaba],
+        #         x="EGABA",
+        #         y=num_bursts_col,
+        #         hue=constants.G_AMPA,
+        #     )
+        #     joint_figs.append(g.figure)
+        # self.save_figure(figs=joint_figs, close=True)
+
+        df_g_E["GABA/AMPA"] = df_g_E[constants.G_GABA] / df_g_E[constants.G_AMPA]
 
 
 if __name__ == "__main__":
-    gve = Params(
-        gGABAs=np.append(np.round(np.arange(0, 100.0001, 10), 0), [125, 160, 200, 250]),
-        gAMPAs=np.round(np.arange(0, 10.0001, 1), 0),
+    exc_params = Params(
+        gGABAs=[
+            # 0,
+            25,
+            50,
+            100,
+            # 200,
+        ],
+        gAMPAs=np.round(np.arange(0, 20.0001, 5.0), 0),
+        gNMDAs=[4.0, 5.0, 7.5, 10.0],
+        seeds=(
+            None,
+            1013,
+            12987,
+            #    1234, 1837
+        ),
+        __device_directory=f".cpp_{Params.fig_name}_small",
     )
-    gve.run()
-    gve.process()
-    gve.plot()
-    gve.save_figure(figs=gve.figs, close=True)
+    exc_params.run()
+    exc_params.process()
+    exc_params.plot(egabas=[-42, -56, -70])
+    exc_params.save_figure(figs=exc_params.figs, close=True)
 
     plt.show()

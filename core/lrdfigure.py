@@ -1,3 +1,4 @@
+import glob
 import itertools
 import json
 import logging
@@ -9,8 +10,7 @@ from collections import OrderedDict, namedtuple
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from brian2 import (Hz, PopulationRateMonitor, SpikeMonitor, StateMonitor, nS,
-                    pA, second)
+from brian2 import Hz, PopulationRateMonitor, SpikeMonitor, StateMonitor, nS, pA, second
 
 import core.sim as sim
 from style.figure import plot_save
@@ -18,6 +18,7 @@ from utils.hashable import hashable
 
 logger = logging.getLogger(__name__)
 time_unit = second
+
 
 class LRDFigure(object):
     """Parent Class for figures.
@@ -37,6 +38,7 @@ class LRDFigure(object):
 
     def setup(self, **kwargs):
         self.setup_kwargs = kwargs
+        self.setup_kwargs.setdefault("__device_directory", f".cpp_{self.fig_name}")
         return self
 
     def run(self, cache=True, **kwargs):
@@ -109,7 +111,8 @@ class LRDFigure(object):
                 spkmon = SpkMon(
                     **{k: v for k, v in value.get_states().items() if k != "N"}
                 )
-                to_save[var_name + "_SpkMon"] = spkmon
+                # to_save[var_name + "_SpkMon"] = spkmon
+                spkmon.save(path.replace(".h5", f"{var_name}_SpkMon.npz"))
             elif isinstance(value, PopulationRateMonitor) and __value_recorded(
                 var_name, monitors
             ):
@@ -140,7 +143,9 @@ class LRDFigure(object):
                     continue
                 to_save[var_name] = value
         numpy_path = path.replace(".h5", ".npz")
+
         np.savez_compressed(numpy_path, **to_save)
+
         self.var_df.to_hdf(path, key="var_df", complevel=7, complib="blosc:zstd")
         logger.debug(f"saved {to_save.keys()} to {numpy_path}")
 
@@ -179,6 +184,13 @@ class LRDFigure(object):
                     save_dest[key.replace("_SpkMon", "")] = SpkMon(*value)
                 else:
                     save_dest[key] = value
+            
+            # see if a file ends with _SpkMon.npz
+            files = glob.glob(path.replace(".h5", "*_SpkMon.npz"))
+            for file in files:
+                key = os.path.basename(file).replace("_SpkMon.npz", "")
+                save_dest[key] = SpkMon.load(file)
+            
         return True
 
     # noinspection PyUnresolvedReferences
@@ -219,7 +231,7 @@ class LRDFigure(object):
 
     def save_figure(
         self,
-        file_formats=("pdf", "png"),
+        file_formats=("pdf", "jpg"),
         use_args=False,
         figs=None,
         close=True,
@@ -396,7 +408,7 @@ class MultiRunFigure(LRDFigure):
             import vaex  # noqa
 
             self.results = self.df = vaex.open(vaex_fname)
-            logger.info(f"loaded {self.df.columns} from cache {vaex_fname}")
+            logger.info(f"loaded {self.df.column_names} from cache {vaex_fname}")
             return self
         if os.path.isfile(fname):
             self.results = self.df = pd.read_hdf(fname, key="df")
@@ -415,7 +427,7 @@ class MultiRunFigure(LRDFigure):
             vaex_file_name = vaex_multi_fname.replace("*", f"{run_key}")
             try:
                 _df = pd.read_hdf(file_name, key="df")
-            except KeyError:
+            except (KeyError, FileNotFoundError):
                 _df = pd.read_hdf(file_name.replace(".h5", ""), key="df")
 
             if "duration" in kwargs:
@@ -447,8 +459,7 @@ class MultiRunFigure(LRDFigure):
             else:
                 if self.df is None:
                     with warnings.catch_warnings():
-                        from tables import (NaturalNameWarning,
-                                            PerformanceWarning)
+                        from tables import NaturalNameWarning, PerformanceWarning
 
                         warnings.simplefilter("ignore", NaturalNameWarning)
                         warnings.simplefilter("ignore", PerformanceWarning)
@@ -592,3 +603,12 @@ class SpkMon(namedtuple("SpkMon", "i t count")):
     @property
     def it(self):
         return self.i, self.t
+
+    # save npz
+    def save(self, file_name):
+        np.savez_compressed(file_name, i=self.i, t=self.t, count=self.count)
+
+    @staticmethod
+    def load(file_name):
+        data = np.load(file_name)
+        return SpkMon(**data)
