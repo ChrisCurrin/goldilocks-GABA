@@ -363,7 +363,7 @@ class Drugs(MultiRunFigure):
                 size=2,
                 ax=_ax_stat,
             )
-            means = [np.mean(data) for drug, data in stat.iteritems()]
+            means = [np.mean(data) for drug, data in stat.items()]
             # for drug_idx, (drug, data) in enumerate(stat.iteritems()):
             #     benzo_color, ampa_color = plot_utils.get_benzo_color(drug)
             #     color = benzo_color if ampa_color is None else ampa_color

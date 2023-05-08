@@ -5,10 +5,11 @@ import os
 import colorlog
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from brian2.units import second
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize, TwoSlopeNorm
+from matplotlib.colors import LinearSegmentedColormap, LogNorm, Normalize, TwoSlopeNorm
 
 from style import constants  # noqa
 
@@ -185,7 +186,7 @@ def categorical_cmap(nc: int, nsc: int, cmap="tab10", continuous=False):
     return cmap
 
 
-class COLOR(object):
+class COLOR:
     """COLOR object for consistent choice of COLORS wherever settings.py is used"""
 
     B = "#1f77b4"
@@ -244,6 +245,32 @@ class COLOR(object):
         norm=TwoSlopeNorm(vmin=-74, vcenter=-60, vmax=-42), cmap="coolwarm"
     )
     G_AMPA_SM = ScalarMappable(norm=Normalize(0, 20), cmap="Reds_r")
+
+    # TAU_PAL = sns.color_palette("hls", n_colors=len(TAU_KCC2_LIST), desat=1.)
+    TAU_PAL = sns.color_palette(
+        [
+            "#29AF8C",
+            # "#97BE49",
+            # "#4CC756",
+            "#73CC33",
+            "#3D9CCC",
+            "#7C60C6",
+            "#D62466",
+            "#D58C2E",
+            "#C9492C",
+            "#44546A",
+            "#21406B",
+        ]
+    )
+    TAU_PAL_DICT = dict(zip(TAU_KCC2_LIST, TAU_PAL))
+    TAU_SM = ScalarMappable(
+        norm=LogNorm(1, max(TAU_KCC2_LIST)),
+        cmap=LinearSegmentedColormap.from_list("TAU_cm", TAU_PAL),
+    )
+
+    G_GABA_PAL = sns.color_palette("Greys", n_colors=len(G_GABA_LIST))
+    G_GABA_PAL_DICT = dict(zip(G_GABA_LIST, G_GABA_PAL))
+    G_GABA_SM = ScalarMappable(norm=LogNorm(1, max(G_GABA_LIST)), cmap="Greys")
 
     blend = staticmethod(blend)
     truncate_colormap = staticmethod(truncate_colormap)

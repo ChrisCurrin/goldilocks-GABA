@@ -65,7 +65,7 @@ class Chloride(MultiRunFigure):
     def plot(
         self,
         timeit=True,
-        burst_window=100,
+        burst_window=120,
         colorbar=False,
         histogram=True,
         **kwargs,
@@ -114,7 +114,13 @@ class Chloride(MultiRunFigure):
         vmax = e_gaba_all.values.max()
 
         lighten_g = np.linspace(0.6, 1.3, len(self.g_GABAs))
-        cp = sns.color_palette("Set1", n_colors=len(self.tau_KCC2s))
+
+        cp = [
+            settings.COLOR.TAU_PAL_DICT[tau]
+            if tau in settings.COLOR.TAU_PAL_DICT
+            else settings.COLOR.TAU_SM.to_rgba(tau)
+            for tau in self.tau_KCC2s
+        ]
         cs = [settings.lighten_color(c, light) for c in cp for light in lighten_g]
         cs_arr = np.array(cs).reshape(len(self.tau_KCC2s), len(self.g_GABAs), 3)
 

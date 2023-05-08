@@ -412,7 +412,7 @@ class MultiRunFigure(LRDFigure):
             return self
         if os.path.isfile(fname):
             self.results = self.df = pd.read_hdf(fname, key="df")
-            logger.info(f"loaded {self.df.columns} from cache {fname}")
+            logger.info(f"loaded {self.df.columns.names} ({self.df.shape}) from cache {fname}")
             return self
 
         if use_vaex:

@@ -52,6 +52,14 @@ class Gve(MultiRunFigure):
             **kwargs,
         )
 
+        self.df_g_E = None
+        self.df_g_E_bursts = None
+        self.df_g_tau = None
+        self.df_g_tau_bursts = None
+        self.num_bursts_col = None
+        self.sum_igaba = None
+        self.mean_igaba = None
+
     def run(
         self,
         subsample=10,
@@ -313,40 +321,28 @@ class Gve(MultiRunFigure):
         self.sum_igaba = sum_igaba
         self.mean_igaba = mean_igaba
 
-    def plot(self, timeit=True, **kwargs):
+    def plot(self, timeit=True, egabas=None, **kwargs):
         super().plot(**kwargs)
+        if self.df_g_E is None:
+            self.process()
         logger.info("plotting")
         plot_time_start = time.time()
 
-        fig, gs = new_gridspec(
-            2,
-            4,
-            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
-            grid_kwargs=dict(
-                width_ratios=(1, 0.08, 1, 0.05),
-                height_ratios=(0.5, 1),
-                wspace=1,
-                hspace=0.4,
-                left=0.1,
-                right=0.95,
-                bottom=0.2,
-                top=0.95,
-            ),
-        )
         fig, axes = plt.subplot_mosaic(
             [
-                ["static_egaba", "static_egaba_cax", "."],
-                [".", ".", "i_gaba_cax"],
-                ["tau_kcc2", ".", "i_gaba"],
+                ["static_egaba", "static_egaba_cax", ".", "i_gaba_cax"],
+                ["static_egaba", "static_egaba_cax", ".", "i_gaba"],
+                [".", "static_egaba_cax", ".", "i_gaba"],
+                ["tau_kcc2", ".", ".", "i_gaba"],
             ],
             figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
             gridspec_kw=dict(
-                width_ratios=(1.5, 0.05, 1),
-                height_ratios=(0.5, 0.1, 1),
+                width_ratios=(1.5, 0.05, 0.01, 1),
+                height_ratios=(0.1, 0.5, 0.1, 1),
                 wspace=0.5,
                 hspace=0.5,
                 left=0.1,
-                right=0.93,
+                right=0.9,
                 bottom=0.15,
                 top=0.95,
             ),
@@ -355,7 +351,7 @@ class Gve(MultiRunFigure):
         self.figs.append(fig)
         # static_ax = fig.add_subplot(gs[0, 0])
         static_ax = axes["static_egaba"]
-        self.plot_staticegaba(ax=static_ax)
+        self.plot_staticegaba(ax=static_ax, egabas=egabas)
         static_ax.set_xlim(10, xmax=1000)
         static_ax.set_ylim(0, ymax=13)
         static_ax.set_xlabel(f"{constants.G_GABA} (nS)")
@@ -455,7 +451,7 @@ class Gve(MultiRunFigure):
 
         s = (
             pd.Series(new_y[eg_idx], index=new_x[eg_idx.index])
-            .rolling(window=20, win_type="triang", center=True)
+            .rolling(window=20, win_type="triang", center=False, closed="left")
             .mean()
         )
         if plot_3d:
@@ -811,7 +807,7 @@ class Gve(MultiRunFigure):
             cbar.outline.set_visible(False)
         # ax.set_xscale("symlog")
 
-    def plot_staticegaba(self, fig=None, ax=None, norm=None, cmap=None):
+    def plot_staticegaba(self, fig=None, ax=None, norm=None, cmap=None, egabas=None):
         if ax is None:
             fig, ax = plt.subplots()
             self.figs.append(fig)
@@ -819,6 +815,12 @@ class Gve(MultiRunFigure):
             norm = settings.COLOR.EGABA_SM.norm
         if cmap is None:
             cmap = settings.COLOR.EGABA_SM.cmap
+        if egabas is None:
+            egabas = self.df_g_E_bursts[constants.EGABA].unique()
+        elif isinstance(egabas, int):
+            _egaba_values = np.arange(self.EGABA_0, self.EGABA_end, self.mv_step)
+            egabas = _egaba_values[:: len(_egaba_values) // egabas]
+
         # bursts v G with EGABA
         wide_df = self.df_g_E_bursts.pivot_table(
             index=constants.G_GABA,
@@ -832,7 +834,7 @@ class Gve(MultiRunFigure):
             x=constants.G_GABA,
             y=self.num_bursts_col,
             hue=constants.EGABA,
-            hue_order=self.df_g_E_bursts[constants.EGABA].unique(),
+            hue_order=egabas,
             hue_norm=norm,
             palette=cmap,
             data=wide_df.reset_index().melt(
@@ -845,7 +847,7 @@ class Gve(MultiRunFigure):
             x=constants.G_GABA,
             y=self.num_bursts_col,
             hue=constants.EGABA,
-            hue_order=self.df_g_E_bursts[constants.EGABA].unique(),
+            hue_order=egabas,
             hue_norm=norm,
             palette=cmap,
             data=self.df_g_E_bursts,
@@ -927,40 +929,29 @@ class Gve(MultiRunFigure):
             title=constants.G_GABA,
             title_fontsize="small",
         )
-        for i, g in enumerate(g_gabas):
-            gdf = df_g_tau[df_g_tau[constants.G_GABA] == g]
-            gbursts = df_g_tau_bursts[df_g_tau_bursts[constants.G_GABA] == g]
-            # print(gbursts[[constants.TAU_KCC2,num_bursts_col]])
-            total = np.sum(gbursts[num_bursts_col])
-            sns.kdeplot(
-                gdf[log_tau],
-                bw=0.1,
-                color=palette[i],
-                ax=axs_d[0, 0],
-                shade=True,
-                legend=True,
-                label=total,
-                zorder=-i,
-            )
-            sns.kdeplot(
-                gdf[constants.EGABA],
-                color=palette[i],
-                vertical=True,
-                ax=axs_d[1, 1],
-                shade=True,
-                legend=False,
-                zorder=-i,
-            )
-        axs_d[0, 0].legend(
-            ncol=len(g_gabas) // 2,
-            borderaxespad=0,
-            borderpad=0,
-            frameon=False,
-            fontsize="x-small",
-            title=num_bursts_col,
-            title_fontsize="small",
-        ).remove()
 
+        sns.histplot(
+            data=df_g_tau,
+            x=log_tau,
+            hue=constants.G_GABA,
+            palette=palette,
+            ax=axs_d[0, 0],
+            multiple="stack",
+            stat="density",
+            fill=True,
+            legend=False,
+        )
+        sns.histplot(
+            data=df_g_tau,
+            y=constants.EGABA,
+            hue=constants.G_GABA,
+            palette=palette,
+            ax=axs_d[1, 1],
+            multiple="stack",
+            stat="density",
+            fill=True,
+            legend=False,
+        )
         group_g = (
             df_g_tau_bursts[[constants.G_GABA, num_bursts_col]]
             .groupby(constants.G_GABA, as_index=False)
@@ -1012,7 +1003,7 @@ if __name__ == "__main__":
     )
     gve.run()
     gve.process()
-    gve.plot()
+    gve.plot(egabas=5)
     gve.save_figure(file_formats=("pdf", "jpg"), figs=gve.figs, close=True)
     # zoom
     # gve = Gve(

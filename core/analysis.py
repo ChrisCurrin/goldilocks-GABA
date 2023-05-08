@@ -13,6 +13,7 @@ logger = logging.getLogger("analysis")
 # suppress numpy warnings
 np.seterr(all="ignore")
 
+
 def spikes_to_rate(spk_mon, time_unit=ms, bin_width=10 * ms):
     """
     Convert spikes from a SpikeMonitor to a rate (in pandas Series)
@@ -120,7 +121,8 @@ def burst_stats(
         kwargs = {
             "lw": 0.5,
             "color": "k",
-            "burst_kwargs": {"alpha": 0.5, "lw": 0.5, "color": "g"},
+            "burst_kwargs": {"alpha": 0.5, "lw": 0.5, "ms": 0.1, "color": "g"},
+            "plot_burst_duration": False,
         }
         if isinstance(plot_fig, plt.Axes):
             ax: plt.Axes = plot_fig
@@ -133,12 +135,16 @@ def burst_stats(
         else:
             fig, ax = plt.subplots()
         burst_kwargs = kwargs.pop("burst_kwargs", {})
+        plot_burst_duration = kwargs.pop("plot_burst_duration", False)
         ax.plot(_time, _rate, **kwargs)
         y_top = np.max(_rate) + 5
-        for st, et in zip(burst_start_times, burst_end_times):
-            ax.plot([st, et], [y_top] * 2, **burst_kwargs)
-        # ax.vlines(burst_start_times, 0, np.max(_rate) + 5, color='C0', lw=0.5, ls='--')
-        # ax.vlines(burst_end_times, 0, np.max(_rate) + 5, color='C1', lw=0.5, ls=':')
+        if burst_kwargs:
+            if plot_burst_duration:
+                for st, et in zip(burst_start_times, burst_end_times):
+                    ax.plot([st, et], [y_top] * 2, **burst_kwargs)
+            ax.plot(
+                burst_start_times, [y_top] * len(burst_start_times), ">", **burst_kwargs
+            )
         ax.set_ylim(0)
 
     return burst_start_times, burst_end_times

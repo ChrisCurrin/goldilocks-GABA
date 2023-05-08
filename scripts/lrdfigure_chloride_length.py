@@ -45,7 +45,7 @@ class ChlorideLength(MultiRunFigure):
 
     def __init__(
         self,
-        tau_KCC2s=(250, 100, 50, 30),
+        tau_KCC2s=tuple(settings.TAU_KCC2_LIST[::2]),
         E_Cl_0s=(-60,),
         g_GABAs=(50,),
         lengths=(15, 10, 7.5),
@@ -71,7 +71,7 @@ class ChlorideLength(MultiRunFigure):
     def plot(
         self,
         timeit=True,
-        burst_window=60,
+        burst_window=120,
         colorbar=False,
         histogram=True,
         **kwargs,
@@ -94,7 +94,7 @@ class ChlorideLength(MultiRunFigure):
             nrows=gridspec["height_ratios"].__len__(),
             ncols=ncols,
             grid_kwargs=gridspec,
-            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
+            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_FULL_no_cap),
         )
         gs.update(top=0.9, bottom=0.1, left=0.1, right=0.93, hspace=0.35, wspace=0.2)
 
@@ -127,7 +127,12 @@ class ChlorideLength(MultiRunFigure):
         ]
         cmap = LinearSegmentedColormap.from_list("E_GABA_cm", egaba_c)
         lighten_g = np.linspace(0.6, 1.3, len(self.g_GABAs))
-        cp = sns.color_palette("Set1", n_colors=len(self.tau_KCC2s))
+        cp = [
+            settings.COLOR.TAU_PAL_DICT[tau]
+            if tau in settings.COLOR.TAU_PAL_DICT
+            else settings.COLOR.TAU_SM.to_rgba(tau)
+            for tau in self.tau_KCC2s
+        ]
         cs = [settings.lighten_color(c, light) for c in cp for light in lighten_g]
         cs_arr = np.array(cs).reshape(len(self.tau_KCC2s), len(self.g_GABAs), 3)
 
@@ -440,7 +445,6 @@ class ChlorideLength(MultiRunFigure):
                 zorder=5,  # one tail of errorbar
                 data=df_num_bursts[df_num_bursts["length"] == length],
                 ax=axs[-1, len_idx],
-                legend=False,
             )
             # sns.boxplot(x='bin', y=num_bursts_col, hue='KCC2 g_GABA',
             #             hue_order=[f"{k:.0f} {g:.0f}" for k in self.tau_KCC2s for g in self.g_GABAs],
@@ -469,6 +473,7 @@ class ChlorideLength(MultiRunFigure):
             if len_idx == 0:
                 axs[-1, len_idx].legend().remove()
             else:
+                axs[-1, len_idx].legend().remove()
                 axs[-1, len_idx].set_ylabel("")
 
         axs[-1, 0].set_ylim(0)
@@ -567,6 +572,7 @@ if __name__ == "__main__":
             1337,
             1111,
         ),
+
     )
     cl.run(duration=600)
     cl.plot(timeit=True, colorbar=False)

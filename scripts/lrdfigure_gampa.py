@@ -1,9 +1,11 @@
 import itertools
 import time
 from collections import OrderedDict
+from matplotlib import patheffects
 from matplotlib.colors import Normalize
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -19,6 +21,7 @@ from settings import (
     time_unit,
     PAGE_W_FULL,
     PAGE_H_half,
+    COLOR,
 )
 from style.axes import colorline
 
@@ -207,6 +210,7 @@ class Params(MultiRunFigure):
             [[f"rates_color_{g}"] for g in self.gNMDAs],
             # subplot_kw={"sharex": "all", "sharey": "all"},
             figsize=(PAGE_W_FULL, PAGE_H_half),
+            gridspec_kw={"hspace": 0.2},
         )
         gGABA = self.gGABAs[1]
         gAMPA = self.gAMPAs[0]
@@ -232,7 +236,7 @@ class Params(MultiRunFigure):
                 df_rates.index,
                 df_rates.values,
                 z=df_egaba.values,
-                cmap="coolwarm",
+                cmap=sns.blend_palette(["Blue", "Purple", "Red"], as_cmap=True),
                 norm=norm,
                 linewidth=0.5,
                 ax=ax,
@@ -305,8 +309,19 @@ class Params(MultiRunFigure):
         for (g, g_nmda), (e, egaba) in itertools.product(
             enumerate(sorted(self.gNMDAs)), enumerate(egabas)
         ):
-            pal = "YlOrRd_r" if egaba >= -48 else "YlGnBu_r"
-            errcolor = "r" if egaba >= -48 else "b"
+            # color palette that os from purple to yellow
+            if egaba >= -48:
+                pal = "YlOrRd_r"
+                errcolor = "r"
+            elif -60 < egaba < -48:
+                pal = sns.blend_palette(
+                    ["purple", "pink"], len(self.gAMPAs), as_cmap=False
+                )
+                errcolor = "purple"
+            else:
+                pal = "YlGnBu_r"
+                errcolor = "b"
+
             sns.barplot(
                 x=constants.G_GABA,
                 y=num_bursts_col,
@@ -336,14 +351,18 @@ class Params(MultiRunFigure):
                 axes[e, g].set_ylabel(num_bursts_col)
                 # annotate egaba
                 axes[e, g].annotate(
-                    f"EGABA = {egaba:.0f}",
+                    f"{constants.E_GABA} = {egaba:.0f} mV",
                     xy=(0.0, 1.0),
                     xycoords="axes fraction",
                     xytext=(0, 5),
                     textcoords="offset points",
                     ha="right",
                     va="bottom",
-                    fontsize="small",
+                    fontsize="medium",
+                    color=COLOR.EGABA_SM.to_rgba(egaba),
+                    path_effects=[
+                        patheffects.withSimplePatchShadow(offset=(0.5, -0.5))
+                    ],
                 )
             else:
                 axes[e, g].set_ylabel("")
@@ -357,6 +376,11 @@ class Params(MultiRunFigure):
                 axes[e, g].set_xlabel(f"{constants.G_GABA} (ns)")
             else:
                 axes[e, g].set_xlabel("")
+
+            # yticks and grid
+            # using MaxNLocator to get nice tick spacing
+            axes[e, g].yaxis.set_major_locator(MaxNLocator("auto", integer=True))
+            axes[e, g].grid(True, axis="y", alpha=0.5, zorder=-1)
 
         leg = axes[0, 0].legend(
             ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
@@ -452,7 +476,7 @@ if __name__ == "__main__":
             # 200,
         ],
         gAMPAs=np.round(np.arange(0, 20.0001, 5.0), 0),
-        gNMDAs=[4.0, 5.0, 7.5, 10.0],
+        gNMDAs=[5.0, 7.5, 10.0],
         seeds=(
             None,
             1013,

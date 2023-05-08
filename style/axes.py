@@ -592,6 +592,9 @@ def colorline(
         ax = plt.gca()
     ax.add_collection(lc)
 
+    # set axes limits to fit data
+    ax.set(xlim=(np.min(x), np.max(x)), ylim=(np.min(y), np.max(y)))
+
     return lc
 
 
