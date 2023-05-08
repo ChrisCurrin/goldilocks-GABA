@@ -16,7 +16,6 @@ from core.analysis import burst_stats
 from core.lrdfigure import MultiRunFigure
 from settings import (
     constants,
-    lighten_color,
     logging,
     time_unit,
     PAGE_W_FULL,
@@ -221,7 +220,6 @@ class Params(MultiRunFigure):
         r_norm = norm = Normalize(r_all.min(), r_all.max())
 
         bins = np.arange(0, self.duration, self.time_per_value)
-        bin_size = self.time_per_value
         for gNMDA in self.gNMDAs:
             ax = axes[f"rates_color_{gNMDA}"]
             df_egaba = self.df[gGABA, gAMPA, gNMDA, run_idx, "E_GABA_all"]
@@ -287,23 +285,6 @@ class Params(MultiRunFigure):
         df_g_E_bursts[constants.G_AMPA] = df_g_E_bursts[constants.G_AMPA].astype(int)
         df_g_E_bursts[constants.G_GABA] = df_g_E_bursts[constants.G_GABA].astype(int)
         df_g_E_bursts[constants.G_NMDA] = df_g_E_bursts[constants.G_NMDA].astype(float)
-
-        # concat as string
-        # df_g_E_bursts["AMPA+NMDA"] = df_g_E_bursts[
-        #     [constants.G_NMDA, constants.G_AMPA]
-        # ].apply(lambda x: f"{x[0]:.1f} | {x[1]}", axis=1)
-        df_g_E_bursts["AMPA+NMDA"] = (
-            df_g_E_bursts[constants.G_NMDA].astype(str)
-            + "|"
-            + df_g_E_bursts[constants.G_AMPA].astype(str)
-        )
-        # sort by AMPA+NMDA
-        # df_g_E_bursts = df_g_E_bursts.sort_values(["AMPA+NMDA"])
-
-        lighten_g_nmda = np.linspace(0.6, 1.3, len(self.gNMDAs))
-        cp = sns.color_palette("Set1", n_colors=len(self.gAMPAs))
-        cs = [lighten_color(c, light) for c in cp for light in lighten_g_nmda]
-        # cs_arr = np.array(cs).reshape(len(self.gAMPAs), len(self.gNMDAs), 3)
 
         # bursts v G with G_AMPA
         for (g, g_nmda), (e, egaba) in itertools.product(

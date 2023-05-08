@@ -22,7 +22,7 @@ from brian2 import (
 )
 from brian2.devices import all_devices, device, get_device, seed, set_device
 from brian2.monitors import PopulationRateMonitor, SpikeMonitor, StateMonitor
-from brian2.units import Hz, mM, ms, mV, nF, nS, second, siemens, um
+from brian2.units import Hz, mM, ms, mV, nF, nS, second, um
 from brian2.units.constants import faraday_constant as F
 from brian2.units.constants import gas_constant as R
 from brian2.units.constants import kelvin, zero_celsius

@@ -7,10 +7,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from brian2 import ms
-from matplotlib import ticker
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import ListedColormap, LogNorm, Normalize
-from matplotlib.lines import Line2D
 from scipy import interpolate, stats
 
 import settings
@@ -19,7 +17,6 @@ from core.lrdfigure import MultiRunFigure, time_unit
 from settings import logging
 from style import constants
 from style.axes import adjust_spines
-from style.figure import new_gridspec
 from style.text import math_fix
 
 logger = logging.getLogger(__name__)
@@ -670,8 +667,6 @@ class Gve(MultiRunFigure):
         self.figs.append(fig)
 
     def plot_igaba(self, fig=None, ax=None, cax=None, min_s=None):
-        from scipy import stats
-
         if min_s is None:
             fig_size = fig.get_size_inches()
             min_s = fig_size[0] * fig_size[1]

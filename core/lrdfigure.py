@@ -184,13 +184,13 @@ class LRDFigure(object):
                     save_dest[key.replace("_SpkMon", "")] = SpkMon(*value)
                 else:
                     save_dest[key] = value
-            
+
             # see if a file ends with _SpkMon.npz
             files = glob.glob(path.replace(".h5", "*_SpkMon.npz"))
             for file in files:
                 key = os.path.basename(file).replace("_SpkMon.npz", "")
                 save_dest[key] = SpkMon.load(file)
-            
+
         return True
 
     # noinspection PyUnresolvedReferences
@@ -412,7 +412,9 @@ class MultiRunFigure(LRDFigure):
             return self
         if os.path.isfile(fname):
             self.results = self.df = pd.read_hdf(fname, key="df")
-            logger.info(f"loaded {self.df.columns.names} ({self.df.shape}) from cache {fname}")
+            logger.info(
+                f"loaded {self.df.columns.names} ({self.df.shape}) from cache {fname}"
+            )
             return self
 
         if use_vaex:

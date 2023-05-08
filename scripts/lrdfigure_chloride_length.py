@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from brian2.units import second
 from matplotlib.cbook import flatten
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LinearSegmentedColormap, Normalize
@@ -534,9 +533,13 @@ class ChlorideLength(MultiRunFigure):
             ax_i.set_xlim([0, T])
             ax_i.set_xticklabels([])
 
-        for _ax in axs[::2, 0]: 
+        for _ax in axs[::2, 0]:
             letter_axes(
-                _ax, xy=(0, _ax.get_position().y0), xycoords="figure fraction", ha="left", va="bottom"
+                _ax,
+                xy=(0, _ax.get_position().y0),
+                xycoords="figure fraction",
+                ha="left",
+                va="bottom",
             )
 
         for ax_i in axs[-1, :]:
@@ -572,7 +575,6 @@ if __name__ == "__main__":
             1337,
             1111,
         ),
-
     )
     cl.run(duration=600)
     cl.plot(timeit=True, colorbar=False)
