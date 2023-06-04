@@ -74,7 +74,15 @@ def burst_stats(
         _rate = rate_monitor.values
         _time = rate_monitor.index.values
     elif isinstance(rate_monitor, pd.DataFrame):
-        _rate = rate_monitor.smooth_rate(None, None)
+        _rate = (
+            pd.Series(
+                rate_monitor.rate.values,
+                index=pd.to_timedelta(rate_monitor.index.values, unit="s"),
+            )
+            .rolling(window=pd.to_timedelta(width / ms, unit="ms"))
+            .mean()
+        )
+        # _rate = rate_monitor.smooth_rate(None, None) # uses dummy method from load_variables
         _time = rate_monitor.index.values
     elif np.iterable(rate_monitor):
         _rate = rate_monitor[0]

@@ -299,7 +299,7 @@ class ChlorideLength(MultiRunFigure):
                     only_mean=True,
                     colors=colors,
                     lw=2,
-                    linestyles="--",
+                    linestyles="-",
                     time_unit=time_unit,
                     auto_legend=False,
                 )
@@ -568,7 +568,10 @@ class ChlorideLength(MultiRunFigure):
 
 if __name__ == "__main__":
     cl = ChlorideLength(
-        g_GABAs=(50, 25, 100),
+        g_GABAs=(
+            50,
+            #  25, 100
+        ),
         seeds=(
             None,
             1038,

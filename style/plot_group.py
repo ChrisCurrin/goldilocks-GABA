@@ -271,7 +271,7 @@ def plot_hierarchy(
 
     var_attrs = {
         "v": {"name": "V", "color": COLOR.K, "lw": 0.1},
-        "E_Cl": {"name": settings.ECL, "color": COLOR.G, "lw": 0.5},
+        "E_Cl": {"name": constants.ECL, "color": COLOR.G, "lw": 0.5},
         "E_GABA": {"name": constants.EGABA, "color": COLOR.R1_B3, "lw": 1.5},
     }
 
@@ -428,7 +428,7 @@ def plot_states(
 
     var_attrs = {
         "v": {"name": "V", "color": COLOR.K, "lw": 0.5},
-        "E_Cl": {"name": settings.ECL, "color": COLOR.G, "lw": 0.5},
+        "E_Cl": {"name": constants.ECL, "color": COLOR.G, "lw": 0.5},
         "E_GABA": {"name": constants.EGABA, "color": COLOR.R1_B3, "lw": 1.5},
     }
 

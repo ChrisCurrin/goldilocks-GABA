@@ -11,6 +11,7 @@ from brian2tools import plot_rate, plot_raster, plot_state, plot_synapses
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap
+from tqdm import tqdm
 
 import settings
 from settings import COLOR, constants
@@ -127,14 +128,10 @@ def plot_population_rates(
     :param ax:
     :type ax: Axes
     """
+    logger.info("Population rates")
     if ax is None:
         fig, ax = plt.subplots()
 
-    if not isinstance(rate_monitors[0], PopulationRateMonitor):
-        smooth = False
-        logger.debug(
-            f"rate_monitors[0] not PopulationRateMonitor, but rather {type(rate_monitors[0])}"
-        )
     smooth_rate_args = process_smooth_args(smooth)
 
     if "lw" in kwargs:
@@ -269,7 +266,6 @@ def plot_conductances(
     time_unit=ms,
     **kwargs,
 ):
-    logger.info("Plot postsynaptic conductances")
     if gs is None:
         gs = ["AMPA", "GABA", "NMDA"]
     g_var_names = []
@@ -281,6 +277,9 @@ def plot_conductances(
         g_var_names.append(f"g_{g}")
         g_legend_names.append(f"$g_{{{g}}}$")
         g_colors.append(COLOR.g_dict[g])
+
+    logger.info(f"Plot postsynaptic conductances - {g_var_names}")
+
     plot_state_average(
         state_mon,
         g_var_names,
@@ -315,9 +314,11 @@ def plot_conductances(
         "$g_{GABA}$": sum_g_GABA,
         r"$\sum $": net_g,
     }
-    for g_var_k, g_var_v in g_vars.items():
-        _g_str = ", ".join(["{:>6.2f}".format(g_var / uS) for g_var in g_var_v])
-        logger.debug(f"\t{g_var_k} = {_g_str} (uS)")
+    if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+        for g_var_k, g_var_v in g_vars.items():
+            _g_str = ", ".join(["{:>6.2f}".format(g_var / uS) for g_var in g_var_v])
+            logger.debug(f"\t{g_var_k} = {_g_str} (uS)")
+    logger.info(f"\t plotted - Net g = {np.mean(net_g / uS):>6.2f} (uS)")
 
 
 def plot_conductance_zooms(
@@ -1083,7 +1084,12 @@ def plot_state_average(
         colors = [colors] * len(variables)
 
     # we plot the mean first for legend purposes
-    for v, variable in enumerate(variables):
+    for v, variable in tqdm(
+        enumerate(variables),
+        desc="Plotting state average",
+        # disable=logging.getLogger().getEffectiveLevel() > logging.INFO,
+        leave=True,
+    ):
         view = getattr(state_mon, variable)
         if idxs is not None:
             view = view[idxs]
@@ -1113,26 +1119,55 @@ def plot_state_average(
             **kwargs,
         )
     if not only_mean and getattr(state_mon, variables[0]).shape[0] > 1:
-        for v, variable in enumerate(variables):
-            view = getattr(state_mon, variable)
-            if idxs is not None:
-                view = view[idxs]
-            if window is not None:
-                view = (
-                    pd.DataFrame(view)
-                    .rolling(int(window / defaultclock.dt), axis=1)
-                    .mean()
-                    .values
-                )
-            if blend is not None:
-                base_color = spectra.html(colors[v])
-                for i, blend_c in enumerate(blend):
-                    if blend_c in ["E", "I"]:
-                        blend_c = COLOR.CONN_BLEND[blend_c]
-                    color = base_color.blend(spectra.html(blend_c), 0.75).hexcode
+        with tqdm(
+            len(variables),
+            desc="Plotting state",
+            disable=logging.getLogger().getEffectiveLevel() > logging.INFO,
+            leave=False,
+        ) as pbar:
+            for v, variable in enumerate(variables):
+                pbar.set_description(f"Plotting state {variable}")
+                view = getattr(state_mon, variable)
+                if idxs is not None:
+                    view = view[idxs]
+                if window is not None:
+                    view = (
+                        pd.DataFrame(view)
+                        .rolling(int(window / defaultclock.dt), axis=1)
+                        .mean()
+                        .values
+                    )
+                if blend is not None:
+                    base_color = spectra.html(colors[v])
+                    for i, blend_c in enumerate(blend):
+                        if blend_c in ["E", "I"]:
+                            blend_c = COLOR.CONN_BLEND[blend_c]
+                        color = base_color.blend(spectra.html(blend_c), 0.75).hexcode
+                        plot_state(
+                            state_mon.t,
+                            view[i],
+                            axes=ax,
+                            var_unit=var_unit,
+                            time_unit=time_unit,
+                            var_name=var_names[v],
+                            linestyle=linestyles[v],
+                            lw=lw[v] / 2,
+                            color=color,
+                            alpha=alpha[v] / 2,
+                            label=f"{var_names[v]}_{v} {blend_c}",
+                            rasterized=settings.RASTERIZED,
+                            **kwargs,
+                        )
+                    # if len(blend) == 2: if uncommented, need to reorder correctly
+                    #     ax.fill_between(state_mon.t / time_unit,
+                    #                     view[0] / var_unit, view[1] / var_unit,
+                    #                     color=color, alpha=alpha[v]/4,
+                    #                     zorder=-99999)
+                else:
+                    color = colors[v]
                     plot_state(
                         state_mon.t,
-                        view[i],
+                        view if isinstance(view, pd.DataFrame) else view.T,
                         axes=ax,
                         var_unit=var_unit,
                         time_unit=time_unit,
@@ -1140,33 +1175,12 @@ def plot_state_average(
                         linestyle=linestyles[v],
                         lw=lw[v] / 2,
                         color=color,
-                        alpha=alpha[v] / 2,
-                        label=f"{var_names[v]}_{v} {blend_c}",
+                        alpha=alpha[v] / 4,
+                        label=f"{var_names[v]}_{v}",
                         rasterized=settings.RASTERIZED,
                         **kwargs,
                     )
-                # if len(blend) == 2: if uncommented, need to reorder correctly
-                #     ax.fill_between(state_mon.t / time_unit,
-                #                     view[0] / var_unit, view[1] / var_unit,
-                #                     color=color, alpha=alpha[v]/4,
-                #                     zorder=-99999)
-            else:
-                color = colors[v]
-                plot_state(
-                    state_mon.t,
-                    view if isinstance(view, pd.DataFrame) else view.T,
-                    axes=ax,
-                    var_unit=var_unit,
-                    time_unit=time_unit,
-                    var_name=var_names[v],
-                    linestyle=linestyles[v],
-                    lw=lw[v] / 2,
-                    color=color,
-                    alpha=alpha[v] / 4,
-                    label=f"{var_names[v]}_{v}",
-                    rasterized=settings.RASTERIZED,
-                    **kwargs,
-                )
+                pbar.update(1)
     if auto_legend:
         if type(auto_legend) is dict:
             ax.legend(**auto_legend)

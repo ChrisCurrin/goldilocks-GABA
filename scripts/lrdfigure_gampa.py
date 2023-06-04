@@ -9,7 +9,6 @@ from matplotlib.ticker import MaxNLocator
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.lines import Line2D
 from tqdm import tqdm
 
 from core.analysis import burst_stats
@@ -238,6 +237,7 @@ class Params(MultiRunFigure):
                 norm=norm,
                 linewidth=0.5,
                 ax=ax,
+                rasterized=True,
             )
 
             ax.set_ylabel("Population rate (Hz)")
@@ -257,11 +257,13 @@ class Params(MultiRunFigure):
             ax.set_xticks(bins, minor=True)
             ax.grid(True, axis="x", which="minor", alpha=0.5, linestyle="--")
 
-        self.sim_name, prev_sim_name = "rates_example", self.sim_name
+        self.sim_name, prev_sim_name = f"{self.fig_name}_rates_example", self.sim_name
         self.save_figure(figs=[fig], use_args=True)
         self.sim_name = prev_sim_name
 
-    def plot_gampa(self, axes=None, egaba_as_row=True, egabas=(-48, -56)):
+    def plot_gampa(
+        self, axes=None, egaba_as_row=True, egabas=(-48, -56), fig_kwargs=None
+    ):
         # check egaba in num_ecl_steps
         run_egaba = np.arange(self.EGABA_0, self.EGABA_end, self.mv_step).round(2)
         round_egabas = np.round(egabas, 2)
@@ -270,15 +272,21 @@ class Params(MultiRunFigure):
         ), f"egabas={egabas} not all in run_egaba={run_egaba}"
 
         if axes is None:
+            if fig_kwargs is None:
+                fig_kwargs = {}
+            gridspec_kw = fig_kwargs.pop("gridspec_kw", {"hspace": 0.7, "wspace": 0.1})
+
             fig, axes = plt.subplots(
                 len(egabas) if egaba_as_row else 1,
                 ncols=len(self.gNMDAs),
                 squeeze=False,
                 sharex=True,
                 sharey=True,
+                gridspec_kw=gridspec_kw,
+                **fig_kwargs,
             )
             self.fig = fig
-        df_g_E = self.df_g_E
+        # df_g_E = self.df_g_E
         df_g_E_bursts = self.df_g_E_bursts
         num_bursts_col = self.num_bursts_col
 
@@ -332,7 +340,7 @@ class Params(MultiRunFigure):
                 axes[e, g].set_ylabel(num_bursts_col)
                 # annotate egaba
                 axes[e, g].annotate(
-                    f"{constants.E_GABA} = {egaba:.0f} mV",
+                    f"{constants.E_GABA}\n{egaba:.0f} mV",
                     xy=(0.0, 1.0),
                     xycoords="axes fraction",
                     xytext=(0, 5),
@@ -350,7 +358,9 @@ class Params(MultiRunFigure):
 
             # title
             if e == 0:
-                axes[e, g].set_title(f"{g_nmda} nS", fontsize="small")
+                axes[e, g].set_title(
+                    f"{constants.G_NMDA}\n{g_nmda} nS", va="bottom", fontsize="small"
+                )
 
             # x label
             if e == len(axes) - 1:
@@ -363,88 +373,30 @@ class Params(MultiRunFigure):
             axes[e, g].yaxis.set_major_locator(MaxNLocator("auto", integer=True))
             axes[e, g].grid(True, axis="y", alpha=0.5, zorder=-1)
 
-        leg = axes[0, 0].legend(
-            ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
-            loc="upper left",
-            bbox_to_anchor=(0, 1.0),
-            handlelength=1,
-            handletextpad=0,
-            columnspacing=0,
-            # mode="expand",
-            fontsize="x-small",
-            frameon=False,
-            title=f"{constants.G_AMPA} (ns)",
-            title_fontsize="small",
-        )
+            if g == 0:
+                leg = axes[e, g].legend(
+                    ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
+                    loc="upper left",
+                    bbox_to_anchor=(0, 1.0),
+                    handlelength=1,
+                    handletextpad=0,
+                    columnspacing=0,
+                    # mode="expand",
+                    fontsize="x-small",
+                    frameon=False,
+                    title=f"{constants.G_AMPA} (ns)",
+                    title_fontsize="small",
+                )
 
-        x_off = 8 * len(self.gNMDAs)
-        y_off = 20 * len(egabas)
+                x_off = 8
+                y_off = 8
 
-        # align legend labels to be above the handles
-        for t, h in zip(leg.texts, leg.legend_handles):
-            t.set_ha("center")
-            t.set_position((t.get_position()[0] - x_off, t.get_position()[1] - y_off))
-        axes[0, 0].add_artist(leg)
-
-        leg = axes[-1, 0].legend(
-            ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
-            loc="upper left",
-            bbox_to_anchor=(0, 1.0),
-            handlelength=1,
-            handletextpad=0,
-            columnspacing=0,
-            # mode="expand",
-            fontsize="x-small",
-            frameon=False,
-            title=f"{constants.G_AMPA} (ns)",
-            title_fontsize="small",
-        )
-        # align legend labels to be above the handles
-        for t, h in zip(leg.texts, leg.legend_handles):
-            t.set_ha("center")
-            t.set_position((t.get_position()[0] - x_off, t.get_position()[1] - y_off))
-
-        lines = [
-            Line2D([], [], c=sns.color_palette("Reds", 1)[0]),
-            Line2D([], [], c=sns.color_palette("Blues", 1)[0]),
-        ]
-        labels = ["depolarising", "hyperpolarising"]
-        axes[0, 0].legend(
-            lines,
-            labels,
-            ncol=1,
-            loc="lower right",
-            bbox_to_anchor=(1, 1),
-            fontsize="x-small",
-            frameon=False,
-            title=f"{constants.EGABA}",
-            title_fontsize="small",
-        )
-        # g = sns.displot(
-        #     x=constants.G_AMPA,
-        #     y=constants.G_GABA,
-        #     # y=num_bursts_col,
-        #     hue="EGABA",
-        #     hue_order=sorted(
-        #         df_g_E["EGABA"].unique(),
-        #     ),
-        #     palette="coolwarm",
-        #     # alpha=1,
-        #     data=df_g_E,
-        # )
-        # self.save_figure(figs=[g.figure], close=True)
-        # joint_figs = []
-        # for g_gaba in df_g_E_bursts[constants.G_GABA].unique():
-        #     g = sns.jointplot(
-        #         data=df_g_E_bursts[df_g_E_bursts[constants.G_GABA] == g_gaba],
-        #         x="EGABA",
-        #         y=num_bursts_col,
-        #         hue=constants.G_AMPA,
-        #     )
-        #     joint_figs.append(g.figure)
-        # self.save_figure(figs=joint_figs, close=True)
-
-        df_g_E["GABA/AMPA"] = df_g_E[constants.G_GABA] / df_g_E[constants.G_AMPA]
+                # align legend labels to be above the handles
+                for t, h in zip(leg.texts, leg.legend_handles):
+                    t.set_ha("center")
+                    t.set_position(
+                        (t.get_position()[0] - x_off, t.get_position()[1] - y_off)
+                    )
 
 
 if __name__ == "__main__":
@@ -464,7 +416,7 @@ if __name__ == "__main__":
             12987,
             #    1234, 1837
         ),
-        __device_directory=f".cpp_{Params.fig_name}_small",
+        __device_directory=f".cpp_{Params.fig_name}",
     )
     exc_params.run()
     exc_params.process()

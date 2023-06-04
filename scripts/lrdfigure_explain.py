@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class Explain(LRDFigure):
     fig_name = "figure_1_explain"
 
-    def run(self, cache=False, **kwargs):
+    def run(self, cache=False, **kwargs):  # still not plotting 100% when using cache
         return super().run(cache=cache, **kwargs)
 
     def plot(self, timeit=True, plot_igaba=False, **kwargs):
@@ -464,5 +464,5 @@ if __name__ == "__main__":
         E_Cl_end=ecl[1],
     )
     explain.plot()
-    explain.save_figure(use_args=True)
+    explain.save_figure()
     plt.show()

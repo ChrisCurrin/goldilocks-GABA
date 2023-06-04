@@ -462,19 +462,19 @@ class Tau(MultiRunFigure):
                 #              data=df_num_bursts, ax=ax_bursts, **burst_plot_kwargs)
                 # df_norm.plot(ax=ax_bursts_norm, yerr=df_norm_std, **burst_plot_kwargs)
 
-                # horizontal barplot
+                # vertical barplot
                 df_taus_mean.plot(
                     ax=ax_bursts_norm,
-                    kind="barh",
+                    kind="bar",
                     stacked=True,
-                    xerr=df_taus_std,
+                    yerr=df_taus_std,
                     error_kw=dict(capsize=0, capthick=0.5, lw=0.5),
                     width=1,
                     cmap=LinearSegmentedColormap.from_list(
                         "TAU_cm", settings.COLOR.TAU_PAL
                     ),
                     legend=burst_plot_kwargs["legend"],
-                    xlabel=f"Total\nnumber of bursts\n(in {ticks[-1]/second/60:.0f} minutes)",
+                    ylabel=f"Total\nnumber of bursts\n(in {ticks[-1]/second/60:.0f} minutes)",
                 )
                 # df_taus_mean.sum(axis=1).plot(
                 #     ax=ax_bursts_norm,
@@ -565,6 +565,9 @@ class Tau(MultiRunFigure):
                     vmax=vmax,
                     cmap=hm_cmap,
                     cbar=False,
+                )
+                ax_heatmap.set_xticks(
+                    np.arange(len(tau_KCC2_E_list)) + 0.5, minor=False
                 )
                 ax_heatmap.set_xticklabels(
                     tau_KCC2_E_list, rotation=rotation, ha="center", va="top"
@@ -1070,8 +1073,9 @@ if __name__ == "__main__":
         __device_directory=__device_directory,
     )
 
-    tau.run(duration=600, nrn_idx_i=[0, 1, 2, 3]).plot(
+    tau.run(duration=600, nrn_idx_i=[0, 1, 2, 3])
+    tau.plot(
         plot_g_GABA_list=plot_g_GABA_list
-    ).save_figure(**save_args)
-
+    )
+    tau.save_figure(**save_args)
     plt.show()

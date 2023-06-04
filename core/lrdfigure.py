@@ -10,7 +10,16 @@ from collections import OrderedDict, namedtuple
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from brian2 import Hz, PopulationRateMonitor, SpikeMonitor, StateMonitor, nS, pA, second
+from brian2 import (
+    Hz,
+    PopulationRateMonitor,
+    SpikeMonitor,
+    StateMonitor,
+    ms,
+    nS,
+    pA,
+    second,
+)
 
 import core.sim as sim
 from style.figure import plot_save
@@ -34,6 +43,7 @@ class LRDFigure(object):
         self.results = None
         self.s_labels = []
         self.s_labels_dict = {}
+        self.sim_name = "not run or loaded"
         self.setup(**kwargs)
 
     def setup(self, **kwargs):
@@ -47,6 +57,7 @@ class LRDFigure(object):
         self.sim_name = sim.get_sim_name(**kwargs)
         if cache and self.load_variables():
             self._internalise_objects()
+            self.results = self.__dict__
             return self
         network, results = sim.single_run(**kwargs)
         self._internalise_objects(results)
@@ -165,19 +176,32 @@ class LRDFigure(object):
             if key == "/df":
                 continue
             elif key == "/var_df":
-                for name, value in df.iteritems():
+                for name, value in df.items():
                     save_dest[name] = value
             else:
                 if "smooth_rate" in df.columns:
-                    vals = df.smooth_rate.values
+                    vals = pd.Series(
+                        df.rate.values, index=pd.to_timedelta(df.t, unit="s")
+                    )
+                    smooth_vals = df.smooth_rate.values
                     del df["smooth_rate"]
-                    df.smooth_rate = lambda width, window: vals
+
+                    def smooth_rate(width=None, window=None):
+                        if width is None:
+                            return smooth_vals
+                        return vals.rolling(
+                            window=pd.to_timedelta(width / ms, unit="ms"),
+                            win_type=None if window == "flat" else window,
+                        ).mean().values
+
+                    df.smooth_rate = smooth_rate
                 save_dest[clean_key] = df
             logger.debug(f"{key} loaded from cache {path}")
         if os.path.exists(path.replace(".h5", ".npz")):
             for key, value in np.load(
                 path.replace(".h5", ".npz"), allow_pickle=True
             ).items():
+                key = key.replace(str(self.sim_name), "")
                 if key.endswith("_dict"):
                     save_dest[key.replace("_dict", "")] = value.item()
                 elif key.endswith("_SpkMon"):
@@ -188,7 +212,11 @@ class LRDFigure(object):
             # see if a file ends with _SpkMon.npz
             files = glob.glob(path.replace(".h5", "*_SpkMon.npz"))
             for file in files:
-                key = os.path.basename(file).replace("_SpkMon.npz", "")
+                key = (
+                    os.path.basename(file)
+                    .replace(str(self.sim_name), "")
+                    .replace("_SpkMon.npz", "")
+                )
                 save_dest[key] = SpkMon.load(file)
 
         return True
@@ -218,7 +246,7 @@ class LRDFigure(object):
                 else synapse_mon.source.name
             )
             s_label = "${}$".format(
-                s_name.replace("_", "").replace("C", "C_{", 1) + "}"
+                s_name.replace("_", "").replace("c", "c_{", 1) + "}"
             )
             self.s_labels.append(s_label)
             self.s_labels_dict[s_name] = s_label
@@ -231,7 +259,7 @@ class LRDFigure(object):
 
     def save_figure(
         self,
-        file_formats=("pdf", "jpg"),
+        file_formats=("svg", "pdf", "jpg"),
         use_args=False,
         figs=None,
         close=True,
@@ -242,7 +270,7 @@ class LRDFigure(object):
             figs = figs or [self.fig]
             save_time_0 = time.time()
             if use_args:
-                file_name = self.sim_name.replace(".", "pt").replace(" * ", "")
+                file_name = str(self.sim_name).replace(".", "pt").replace(" * ", "")
             else:
                 file_name = self.fig_name.replace(".", "pt").replace(" * ", "")
             plot_save(
@@ -304,6 +332,9 @@ class LRDFigure(object):
         )
         _df.sort_index(axis="columns", inplace=True)
         return _df
+
+    def __str__(self):
+        return f"{self.fig_name} ({self.sim_name})"
 
 
 @hashable

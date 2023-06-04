@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.cbook import flatten
-from matplotlib.cm import ScalarMappable
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 from matplotlib.lines import Line2D
 
@@ -278,33 +277,7 @@ class Chloride(MultiRunFigure):
                             ec="k",
                         ),
                     )
-
-                    if e == 0:
-                        l_egaba = Line2D([], [], lw=4, ls="--", c=settings.COLOR.K)
-                        l_pop = Line2D(
-                            [], [], ls="-", c=settings.COLOR.K, alpha=0.25, lw=1
-                        )
-                        # ax_r.legend(
-                        #     [l_egaba, l_pop],
-                        #     [f"{constants.EGABA} (mV)", "population rate (Hz)"],
-                        #     loc="lower left",
-                        #     bbox_to_anchor=(0, 1.15),
-                        #     frameon=False,
-                        # )
-                    elif e == len(self.E_Cl_0s) - 1:
-                        # leg = axs[g * 2 + 1, e].legend(
-                        #     lines[::-1],
-                        #     [f"{tau_KCC2}" for tau_KCC2 in self.tau_KCC2s][::-1],
-                        #     loc="lower left",
-                        #     bbox_to_anchor=(1, 0),
-                        #     ncol=1,
-                        #     columnspacing=1.0,
-                        #     frameon=False,
-                        #     title=f"{constants.TAU_KCC2} (s)",
-                        # )
-                        # axs[g*2 + 1, e].add_artist(leg)
-                        adjust_spines(ax_r, [], 0)
-                    else:
+                    if e > 0:
                         adjust_spines(ax_r, [], 0)
                 else:
                     # not the first plot

@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,20 +35,17 @@ class Drugs(MultiRunFigure):
         self,
         benzo_strengths=(0, 0.5, 1, 2, 5, 10),
         E_Cl_0s=(-88, -60),
-        gAMPAs=(None,),
         duration=600,
         **kwargs,
     ):
-        self.benzo_strengths = benzo_strengths
+        self.benzo_strengths: Iterable[float] = benzo_strengths
         self.E_Cl_0s = E_Cl_0s
-        self.gAMPAs = gAMPAs
         self.duration = duration
         super().__init__(
             OrderedDict(
                 benzo_strength={"range": benzo_strengths, "title": "drug"},
                 E_Cl_0={"range": E_Cl_0s, "title": "E_Cl_0"},
                 E_Cl_end="E_Cl_0",
-                g_AMPA_max={"range": gAMPAs, "title": constants.G_AMPA},
             ),
             default_params=dict(
                 manual_cl=True,
@@ -66,6 +64,7 @@ class Drugs(MultiRunFigure):
         var_heights=None,
         stats_to_plot=("Number", "Amplitude", "Duration"),
         stats_heights=None,
+        markersize=4,
         **kwargs,
     ):
         super().plot(**kwargs)
@@ -83,7 +82,6 @@ class Drugs(MultiRunFigure):
         benzo_onset_t = T / 2
         benzo_off_t = T
         # bins = [0, benzo_onset_t, T]
-        markersize = 4
         picro_drugs = np_drugs[np_drugs < 1]
         benzo_drugs = np_drugs[np_drugs > 1]
         bs_to_plot = []
@@ -360,32 +358,20 @@ class Drugs(MultiRunFigure):
                 linewidth=0.1,
                 marker=marker,
                 zorder=-99,
-                size=2,
+                size=markersize,
+                warn_thresh=0.1,
                 ax=_ax_stat,
+                clip_on=False,
             )
             means = [np.mean(data) for drug, data in stat.items()]
-            # for drug_idx, (drug, data) in enumerate(stat.iteritems()):
-            #     benzo_color, ampa_color = plot_utils.get_benzo_color(drug)
-            #     color = benzo_color if ampa_color is None else ampa_color
-            #     if stat_name == "Number":
-            #         acc = np.cumsum(np.array(data) > 0)
-            #         normalizer = Normalize()
-            #         _data = normalizer(acc)*0.5 - 0.25 + x_axis[drug_idx]  # fit points within allotted space
-            #         _ax_stat.plot(_data, data,
-            #                       marker, markersize=markersize,
-            #                       color=settings.COLOR.K, mfc=color, alpha=0.2)
-            #     else:
-            #         _ax_stat.plot([x_axis[drug_idx]]*len(data), data,
-            #                       marker, markersize=markersize,
-            #                       color=settings.COLOR.K, mfc=color, alpha=0.2)
             _ax_stat.legend().remove()
             _ax_stat.plot(
                 x_axis,
                 means,
                 "-",
-                lw=0.1,
-                marker="_",
-                markersize=markersize,
+                lw=1,
+                marker="+",
+                markersize=markersize * 2,
                 color="k",
                 zorder=99,
             )
@@ -395,7 +381,7 @@ class Drugs(MultiRunFigure):
             else:
                 _ax_stat.set_xlabel("")
             _ax_stat.set_xticks(x_axis)
-            labels = [get_drug_label(drug) for drug in drugs]
+            labels = [get_drug_label(drug, 2) for drug in drugs]
             labels = [
                 _benzo if _ampa is None else f"{_benzo}\n{_ampa}"
                 for _benzo, _ampa in labels
@@ -416,7 +402,9 @@ class Drugs(MultiRunFigure):
         burst_start_ts, burst_end_ts = burst_stats(
             rates,
             time_unit=time_unit,
-            plot_fig=dict(ax=_ax_trace, lw=0.05, color=settings.COLOR.K),
+            plot_fig=dict(
+                ax=_ax_trace, lw=0.05, color=settings.COLOR.K, burst_kwargs=False
+            ),
         )
         t_points, n_bursts = inst_burst_rate(
             burst_start_ts,
@@ -467,7 +455,7 @@ class Drugs(MultiRunFigure):
                 zorder=99,
                 clip_on=False,
             )
-        drug_label, ampa_label = get_drug_label(drug)
+        drug_label, ampa_label = get_drug_label(drug, 2)
         label = drug_label if ampa_label is None else ampa_label
         fontsize = "small" if ampa_label is None else "x-small"
         _ax_trace.annotate(

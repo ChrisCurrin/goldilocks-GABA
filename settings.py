@@ -9,7 +9,13 @@ import seaborn as sns
 from brian2.units import second
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import LinearSegmentedColormap, LogNorm, Normalize, TwoSlopeNorm
+from matplotlib.colors import (
+    FuncNorm,
+    LinearSegmentedColormap,
+    LogNorm,
+    Normalize,
+    TwoSlopeNorm,
+)
 
 from style import constants  # noqa
 
@@ -108,6 +114,9 @@ default_colors = [
 
 def blend(c1="#d62728", c2="#1f77b4", ratio=0.5):
     """Shorthand for most common form of mixing colors
+
+    see also: `sns.blend_palette`
+
     >>> COLOR.blend(COLOR.E, COLOR.I, 0.5).hexcode
     '#7b4f6e'
     """
@@ -184,6 +193,14 @@ def categorical_cmap(nc: int, nsc: int, cmap="tab10", continuous=False):
         cols[_start:_end, :] = rgb
     cmap = colors.ListedColormap(cols)
     return cmap
+
+
+class G_GABA_Norm(TwoSlopeNorm, LogNorm):
+    """
+    Log-normalise data with a center.
+    """
+
+    pass
 
 
 class COLOR:
@@ -268,9 +285,18 @@ class COLOR:
         cmap=LinearSegmentedColormap.from_list("TAU_cm", TAU_PAL),
     )
 
-    G_GABA_PAL = sns.color_palette("Greys", n_colors=len(G_GABA_LIST))
-    G_GABA_PAL_DICT = dict(zip(G_GABA_LIST, G_GABA_PAL))
-    G_GABA_SM = ScalarMappable(norm=LogNorm(1, max(G_GABA_LIST)), cmap="Greys")
+    G_GABA_PAL = sns.blend_palette(
+        [blockGABA, K, benzoGABA], n_colors=len([1] + G_GABA_LIST)
+    )
+    G_GABA_PAL_DICT = dict(zip([1] + G_GABA_LIST, G_GABA_PAL))
+    G_GABA_SM = ScalarMappable(
+        norm=G_GABA_Norm(50, 1, 1000),
+        cmap=sns.blend_palette(
+            [blockGABA] * 5 + [K] + [benzoGABA] * 5,
+            n_colors=11,
+            as_cmap=True,
+        ),
+    )
 
     blend = staticmethod(blend)
     truncate_colormap = staticmethod(truncate_colormap)
@@ -289,7 +315,7 @@ class COLOR:
         return COLOR.EGABA_SM.to_rgba(egaba)
 
 
-benzo_map = {"default": COLOR.inh}
+benzo_map = {"default": COLOR.average}
 _picro_N = np.round(np.linspace(0, 1, 100, endpoint=False), 2)
 for i in _picro_N:
     benzo_map[i] = lighten_color(COLOR.Pi, 1 - i + 0.3 * i)  # [1, 0.3]
