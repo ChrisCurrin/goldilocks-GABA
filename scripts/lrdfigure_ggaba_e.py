@@ -12,8 +12,6 @@ from matplotlib.colors import (
     ListedColormap,
     LogNorm,
     Normalize,
-    SymLogNorm,
-    TwoSlopeNorm,
 )
 from scipy import interpolate, stats
 
@@ -389,7 +387,10 @@ class Gve(MultiRunFigure):
         self.plot_igaba(fig=fig, ax=igaba_ax, cax=igaba_cax)
 
         static_ax.set_title(
-            constants.STATIC_CHLORIDE_STR_ABBR, fontsize="medium", va="top", ha="center",
+            constants.STATIC_CHLORIDE_STR_ABBR,
+            fontsize="medium",
+            va="top",
+            ha="center",
             loc="left",
         )
         tau_ax.set_title(
@@ -532,9 +533,9 @@ class Gve(MultiRunFigure):
                 # hue_norm=norm,
                 size=self.num_bursts_col,
                 sizes=sizes,
-                #palette=cmap,
+                # palette=cmap,
                 palette="rocket",
-              #  alpha=0.8,
+                #  alpha=0.8,
                 marker="o",
                 data=mean_bursts_per_g_gaba_tau_kcc2,
                 legend="full",
@@ -621,7 +622,9 @@ class Gve(MultiRunFigure):
         # cbar.set_ticks(np.arange(norm.vmin, norm.vmax+1, 10))
         cbar.minorticks_on()
 
-    def i_explore(self, i_metric: str = None, index=constants.E_GABA, columns=constants.G_GABA):
+    def i_explore(
+        self, i_metric: str = None, index=constants.E_GABA, columns=constants.G_GABA
+    ):
         if i_metric is None:
             i_metric = self.sum_igaba
         fig, ax = plt.subplots(nrows=3, sharey=True, sharex=True)
@@ -650,7 +653,8 @@ class Gve(MultiRunFigure):
         cbar = fig.colorbar(mesh, ax=ax[0])
         cbar.set_label(self.num_bursts_col)
         p = self.df_g_tau_bursts.pivot_table(
-            values=i_metric, columns=columns,
+            values=i_metric,
+            columns=columns,
             index=index,
         )
         x = p.columns
@@ -762,7 +766,9 @@ class Gve(MultiRunFigure):
             # arrowprops=dict(arrowstyle='-|>',connectionstyle="arc3, rad=-0.1")
         )
 
-        norm = settings.G_GABA_Norm(50, data[constants.G_GABA].min(), data[constants.G_GABA].max())
+        norm = settings.G_GABA_Norm(
+            50, data[constants.G_GABA].min(), data[constants.G_GABA].max()
+        )
 
         sns.scatterplot(
             x=i_metric,
@@ -886,7 +892,17 @@ class Gve(MultiRunFigure):
         if self.gGABAsvEGABA[-1] > 100:
             ax.set_xscale("log")
 
-    def plot_heatmap(self, static=False, x=constants.G_GABA, y=constants.EGABA, c="Number of bursts\n(per 60 s)", agg="mean", cmap="viridis", ax=None, **kwargs):
+    def plot_heatmap(
+        self,
+        static=False,
+        x=constants.G_GABA,
+        y=constants.EGABA,
+        c="Number of bursts\n(per 60 s)",
+        agg="mean",
+        cmap="viridis",
+        ax=None,
+        **kwargs,
+    ):
         if ax is None:
             fig, ax = plt.subplots()
             self.figs.append(fig)
@@ -925,7 +941,9 @@ class Gve(MultiRunFigure):
             cmap=cmap,
             ax=ax,
             cbar_kws=dict(label=c),
-            norm=LogNorm() if c==constants.TAU_KCC2 or c==constants.G_GABA else None,
+            norm=LogNorm()
+            if c == constants.TAU_KCC2 or c == constants.G_GABA
+            else None,
             # vmin=0,
             mask=mask,
             **kwargs,

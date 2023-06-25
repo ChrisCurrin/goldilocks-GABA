@@ -6,11 +6,12 @@
   },
   "python.formatting.provider": "none",
   "workbench.colorCustomizations": {
-    "sash.hoverBorder": "#c7392c",
-    "statusBar.background": "#9d2d23",
+    "sash.hoverBorder": "#3399ff",
+    "statusBar.background": "#007fff",
     "statusBar.foreground": "#e7e7e7",
-    "statusBarItem.hoverBackground": "#c7392c",
-    "statusBarItem.remoteBackground": "#9d2d23",
+    "statusBarItem.hoverBackground": "#3399ff",
+    "statusBarItem.remoteBackground": "#007fff",
     "statusBarItem.remoteForeground": "#e7e7e7"
-  }
+  },
+  "peacock.color": "#007fff"
 }

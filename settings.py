@@ -10,7 +10,6 @@ from brian2.units import second
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import (
-    FuncNorm,
     LinearSegmentedColormap,
     LogNorm,
     Normalize,
@@ -255,6 +254,8 @@ class COLOR:
     )
 
     CONN_BLEND = dict(E=R3_B1, I=R1_B3)
+
+    ECL = ecl = "#98fb98"
 
     # to get the appropriate EGABA color in range [-80, -40] call EGABA_SM.to_rgba(<egaba value>)
     EGABA_SM = ScalarMappable(norm=Normalize(-80, -40), cmap="Blues_r")
