@@ -1,6 +1,7 @@
 # Project specific
 .cpp*
 temp/
+temp
 tmp/
 output/
 

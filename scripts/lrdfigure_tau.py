@@ -806,7 +806,7 @@ class Tau(MultiRunFigure):
 
         # ratios
         cbar_width = 0.05
-        final_col_width = 1
+        final_col_width = 2
 
         width_ratios = [cbar_width, 1, 1] * len(plot_ggaba) + [final_col_width]
 
@@ -817,16 +817,16 @@ class Tau(MultiRunFigure):
         fig_bursts, axes = plt.subplot_mosaic(
             layout,
             gridspec_kw={
-                "height_ratios": [1, 0.5, 1, cbar_width],
+                "height_ratios": [0.3, 0.5, 1, cbar_width],
                 "width_ratios": width_ratios,
                 "wspace": 0.05,
                 "hspace": 0.05,
             },
-            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_FULL),
+            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
         )
         gs_traces_g = {}
         for g_GABA in plot_ggaba:
-            gs_traces_g[g_GABA] = axes[f"trace_ax_{g_GABA}"].get_gridspec()
+            gs_traces_g[g_GABA] = axes[f"trace_ax_{g_GABA}"]
             axes[f"trace_ax_{g_GABA}"].remove()
 
         ###############################
@@ -856,8 +856,8 @@ class Tau(MultiRunFigure):
         # RATE TRACES
         ###############################
         _ax = None
-        for g_gaba in plot_ggaba:
-            df_r_all: pd.DataFrame = self.df[g_GABA].xs("r_all", axis=1, level="var")
+        for g, g_gaba in enumerate(plot_ggaba):
+            df_r_all: pd.DataFrame = self.df[g_gaba].xs("r_all", axis=1, level="var")
             gs_traces = GridSpecFromSubplotSpec(
                 n, 1, subplot_spec=gs_traces_g[g_gaba], hspace=0.1
             )
@@ -908,11 +908,11 @@ class Tau(MultiRunFigure):
                         va="bottom",
                     )
                     _ax.set_title(
-                        f"{constants.G_GABA} = {g_GABA} nS",
+                        f"{constants.G_GABA} = {g_gaba} nS",
                         fontsize="small",
-                        color=settings.COLOR.G_GABA_PAL_DICT[g_GABA],
+                        color=settings.COLOR.G_GABA_PAL_DICT[g_gaba],
                     )
-                if tau_idx == len(plot_taus) - 1 and g == len(plot_g_GABA_list) - 1:
+                if tau_idx == len(plot_taus) - 1 and g == len(plot_ggaba) - 1:
                     # create scalebar representative of all traces
                     sb = use_scalebar(
                         _ax,
@@ -990,8 +990,8 @@ class Tau(MultiRunFigure):
             )[::-1]
             sns.heatmap(
                 square_df,
-                ax=axes["heatmap"],
-                cbar_ax=axes["heatmap_cbar"],
+                ax=ax_heatmap,
+                cbar_ax=ax_cbar,
                 # cbar_kws={"orientation": "horizontal"},
                 cmap="viridis",
                 # mask=square_df == 0,
@@ -1013,13 +1013,13 @@ class Tau(MultiRunFigure):
                 hue=constants.TAU_KCC2_I,
                 hue_order=tau_i,
                 palette="RdPu",
-                ax=axes["tau_KCC2_E"],
+                ax=ax_tau_pc,
                 legend=True,
                 err_style="bars",
             )
-            axes["tau_KCC2_I"].set_xlim(0, vmax)
-            axes["tau_KCC2_E"].set_ylim(0, vmax)
-            axes["heatmap_cbar"].set_ylim(0, vmax)
+            ax_tau_in.set_xlim(0, vmax)
+            ax_tau_pc.set_ylim(0, vmax)
+            ax_cbar.set_ylim(0, vmax)
 
             ratio = tau_i[1] / tau_i[0]
             bins = np.append(tau_i, df[constants.TAU_KCC2_I].max() * ratio)
@@ -1032,44 +1032,44 @@ class Tau(MultiRunFigure):
                 stat="count",
                 hue=constants.TAU_KCC2_E,
                 hue_order=sorted(df[constants.TAU_KCC2_E].unique()),
-                palette=COLOR.TAU_PAL,
+                palette=settings.COLOR.TAU_PAL,
                 multiple="layer",
                 element="step",
                 bins=bins,
-                ax=axes["tau_KCC2_I"],
+                ax=ax_tau_in,
             )
             # set x scale to log 2
-            axes["tau_KCC2_I"].set_yscale("log", base=ratio)
-            axes["tau_KCC2_I"].set_yticks(
+            ax_tau_in.set_yscale("log", base=ratio)
+            ax_tau_in.set_yticks(
                 df[constants.TAU_KCC2_I].unique() + np.diff(bins) / 2
             )
-            axes["tau_KCC2_I"].set_yticklabels(df[constants.TAU_KCC2_I].unique())
-            axes["tau_KCC2_I"].set_ylim(bins[0], bins[-1])
+            ax_tau_in.set_yticklabels(df[constants.TAU_KCC2_I].unique())
+            ax_tau_in.set_ylim(bins[0], bins[-1])
 
-            sns.despine(ax=axes["tau_KCC2_E"], bottom=True)
-            axes["tau_KCC2_E"].set(xlabel="")
-            axes["tau_KCC2_E"].tick_params(
+            sns.despine(ax=ax_tau_pc, bottom=True)
+            ax_tau_pc.set(xlabel="")
+            ax_tau_pc.tick_params(
                 axis="x", which="both", bottom=True, top=False, labelbottom=False
             )
-            axes["tau_KCC2_E"].set_yticks(np.arange(0, vmax + 1, 20))
-            axes["tau_KCC2_E"].set_yticks(np.arange(0, vmax + 1, 10), minor=True)
-            axes["tau_KCC2_E"].grid(
+            ax_tau_pc.set_yticks(np.arange(0, vmax + 1, 20))
+            ax_tau_pc.set_yticks(np.arange(0, vmax + 1, 10), minor=True)
+            ax_tau_pc.grid(
                 axis="y", which="major", color="lightgrey", linestyle="--", zorder=-1
             )
 
-            sns.despine(ax=axes["tau_KCC2_I"], left=True)
-            axes["tau_KCC2_I"].set(ylabel="", xlabel="Number of bursts")
-            axes["tau_KCC2_I"].tick_params(
+            sns.despine(ax=ax_tau_in, left=True)
+            ax_tau_in.set(ylabel="", xlabel="Number of bursts")
+            ax_tau_in.tick_params(
                 axis="y", which="both", left=True, labelleft=False
             )
-            axes["tau_KCC2_I"].set_xticks(np.arange(0, vmax + 1, 20))
-            axes["tau_KCC2_I"].set_xticks(np.arange(0, vmax + 1, 10), minor=True)
-            axes["tau_KCC2_I"].grid(
+            ax_tau_in.set_xticks(np.arange(0, vmax + 1, 20))
+            ax_tau_in.set_xticks(np.arange(0, vmax + 1, 10), minor=True)
+            ax_tau_in.grid(
                 axis="x", which="major", color="lightgrey", linestyle="--", zorder=-99
             )
 
-            sns.despine(ax=axes["heatmap_cbar"], left=True, bottom=True)
-            axes["heatmap_cbar"].tick_params(
+            sns.despine(ax=ax_cbar, left=True, bottom=True)
+            ax_cbar.tick_params(
                 axis="y",
                 which="both",
                 left=False,
@@ -1084,14 +1084,14 @@ class Tau(MultiRunFigure):
                     1,
                     1,
                     fill=True,
-                    color=COLOR.TAU_PAL_DICT[i],
+                    color=settings.COLOR.TAU_PAL_DICT[i],
                     alpha=0.5,
-                    edgecolor=COLOR.TAU_PAL_DICT[i],
+                    edgecolor=settings.COLOR.TAU_PAL_DICT[i],
                 )
                 for i in sorted(df[constants.TAU_KCC2_E].unique())
             ]
 
-            axes["tau_KCC2_I"].legend(
+            ax_tau_in.legend(
                 handles,
                 sorted(df[constants.TAU_KCC2_E].unique(), reverse=False),
                 loc=(0, 1),
@@ -1100,13 +1100,13 @@ class Tau(MultiRunFigure):
                 handlelength=0,
                 columnspacing=0.2,
                 labelspacing=0,
-                labelcolor=COLOR.TAU_PAL,
+                labelcolor=settings.COLOR.TAU_PAL,
                 fontsize="x-small",
                 title=f"{constants.TAU_KCC2_E} (s)",
                 title_fontsize="small",
                 frameon=False,
             )
-            leg = axes["tau_KCC2_E"].legend(
+            leg = ax_tau_pc.legend(
                 tau_i[::-1],
                 loc=(1, 0.05),
                 handletextpad=0,
