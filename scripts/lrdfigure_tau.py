@@ -1,4 +1,5 @@
 import copy
+from functools import lru_cache
 import itertools
 import time
 from collections import OrderedDict
@@ -14,7 +15,7 @@ from matplotlib.colors import LinearSegmentedColormap, ListedColormap, Normalize
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import MaxNLocator
-from tqdm import tqdm, tqdm_pandas
+from tqdm import tqdm
 
 
 import settings
@@ -97,6 +98,7 @@ class Tau(MultiRunFigure):
         return self
 
     def process_data(self, burst_window=100 * second, **kwargs):
+        logger.info("Processing data")
         df_long = pd.DataFrame(
             columns=[
                 "run_idx",
@@ -194,6 +196,7 @@ class Tau(MultiRunFigure):
         self.df_bursts_bins = df_bursts_bins
         self.df_taus = df_taus
         self.df_num_bursts = df_num_bursts
+        logger.info("Processed data")
         return (df_long, df_bursts_bins, df_taus, df_num_bursts)
 
     def plot_old(
@@ -734,6 +737,7 @@ class Tau(MultiRunFigure):
         burst_window=100 * second,
         plot_ggaba=None,
         rotation=45,
+        df_num_bursts=None,
         **kwargs,
     ):
         super().plot(**kwargs)
@@ -792,23 +796,31 @@ class Tau(MultiRunFigure):
         # we use sum to flatten the list of lists that need to be repeated per g_GABA
         layout = [
             sum([[".", f"trace_ax_{g}", f"trace_ax_{g}"] for g in plot_ggaba], []),
+            # sum([[".", ".", "."] for g in plot_ggaba], []),
             sum(
                 [[f"heatmap_cbar_{g}", f"tau_KCC2_E_{g}", "."] for g in plot_ggaba],
                 [],
             ),
+            sum([[".", ".", "."] for g in plot_ggaba], []),
             sum([[".", f"heatmap_{g}", f"tau_KCC2_I_{g}"] for g in plot_ggaba], []),
-            sum([[".", ".", f"heatmap_hcbar_{g}"] for g in plot_ggaba], []),
         ]
-        final_col = [["."], ["tau_KCC2_E_summary"], ["tau_KCC2_I_summary"], ["."]]
+        final_col = [
+            ["."],
+            ["tau_KCC2_E_summary"],
+            # ["tau_KCC2_E_summary"],
+            ["."],
+            # ["tau_KCC2_I_summary"],
+            ["tau_KCC2_I_summary"],
+        ]
 
         for i in range(len(layout)):
-            layout[i].extend(final_col[i])
+            layout[i].extend(["."] + final_col[i])
 
         # ratios
-        cbar_width = 0.05
+        cbar_width = cbar_height = 0.1
         final_col_width = 2
 
-        width_ratios = [cbar_width, 1, 1] * len(plot_ggaba) + [final_col_width]
+        width_ratios = [cbar_width, 1, 0.8] * len(plot_ggaba) + [0.5, final_col_width]
 
         logger.debug(f"num cols: {len(layout[0])}")
         logger.debug(f"width_ratios: {len(width_ratios)}")
@@ -817,10 +829,14 @@ class Tau(MultiRunFigure):
         fig_bursts, axes = plt.subplot_mosaic(
             layout,
             gridspec_kw={
-                "height_ratios": [0.3, 0.5, 1, cbar_width],
+                "height_ratios": [0.5, 0.8, 0.01, 0.6],
                 "width_ratios": width_ratios,
-                "wspace": 0.05,
-                "hspace": 0.05,
+                "wspace": 0.2,
+                "hspace": 0.2,
+                "left": 0.02,
+                "right": 0.98,
+                "top": 0.95,
+                "bottom": 0.05,
             },
             figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
         )
@@ -832,10 +848,11 @@ class Tau(MultiRunFigure):
         ###############################
         # preprocess some useful vars
         ###############################
-        (df_long, df_bursts_bins, df_taus, df_num_bursts) = self.process_data(
-            burst_window=burst_window
-        )
-        vmax = df_num_bursts["Number of bursts"].max()
+        if df_num_bursts is None:
+            (df_long, df_bursts_bins, df_taus, df_num_bursts) = self.process_data(
+                burst_window=burst_window
+            )
+        vmax = kwargs.pop("vmax", df_num_bursts["Number of bursts"].max())
 
         # replace with a gridspec of len(plot_taus) rows. Filter out None values
         n = len(list(filter(lambda _x: _x[0] is not None, plot_taus)))
@@ -856,7 +873,9 @@ class Tau(MultiRunFigure):
         # RATE TRACES
         ###############################
         _ax = None
-        for g, g_gaba in enumerate(plot_ggaba):
+        for g, g_gaba in tqdm(
+            enumerate(plot_ggaba), desc="plotting rate traces (g_gaba)"
+        ):
             df_r_all: pd.DataFrame = self.df[g_gaba].xs("r_all", axis=1, level="var")
             gs_traces = GridSpecFromSubplotSpec(
                 n, 1, subplot_spec=gs_traces_g[g_gaba], hspace=0.1
@@ -898,15 +917,18 @@ class Tau(MultiRunFigure):
                 _ax.set_ylim(0, r_max * 1.5)
                 _ax.set_xlim(0, ticks[-1])
                 if tau_idx == 0:
+                    if g == 0:
+                        # ylabel title
+                        _ax.annotate(
+                            f"{constants.TAU_KCC2}\nPC, IN",
+                            xy=(-0.15, 1),
+                            xycoords="axes fraction",
+                            fontsize="x-small",
+                            ha="center",
+                            va="bottom",
+                        )
                     # title
-                    _ax.annotate(
-                        f"{constants.TAU_KCC2}\nPC, IN",
-                        xy=(-0.15, 1),
-                        xycoords="axes fraction",
-                        fontsize="x-small",
-                        ha="center",
-                        va="bottom",
-                    )
+
                     _ax.set_title(
                         f"{constants.G_GABA} = {g_gaba} nS",
                         fontsize="small",
@@ -933,14 +955,15 @@ class Tau(MultiRunFigure):
                 _ax.set_xticks(ticks)  # set ticks for grid
                 _ax.grid(True, which="major", axis="x")
                 adjust_spines(_ax, [], 0, sharedx=True, sharedy=True)
-                _ax.set_ylabel(
-                    f"{tau_e:>3.0f}, {tau_i:>3.0f}",
-                    rotation=0,
-                    fontsize="x-small",
-                    color=cmap_tau_e_i[(tau_e, tau_i)],
-                    ha="right",
-                    va="center",
-                )
+                if g == 0:
+                    _ax.set_ylabel(
+                        f"{tau_e:>3.0f}, {tau_i:>3.0f}",
+                        rotation=0,
+                        fontsize="x-small",
+                        color=cmap_tau_e_i[(tau_e, tau_i)],
+                        ha="right",
+                        va="center",
+                    )
                 # disable and remove space for x axis
                 _ax.xaxis.set_visible(False)
 
@@ -950,176 +973,466 @@ class Tau(MultiRunFigure):
         ############################
         # HEATMAPS of BURSTS
         ############################
+        with tqdm(enumerate(plot_ggaba), desc="plotting heatmaps") as pbar:
+            for g, g_gaba in pbar:
+                pbar.set_description(f"plotting heatmaps (g_gaba={g_gaba})")
+                ax_heatmap = axes[f"heatmap_{g_gaba}"]
+                ax_tau_pc = axes[f"tau_KCC2_E_{g_gaba}"]
+                ax_tau_in = axes[f"tau_KCC2_I_{g_gaba}"]
+                ax_cbar = axes[f"heatmap_cbar_{g_gaba}"]
 
-        for g_gaba in plot_ggaba:
-            ax_heatmap = axes[f"heatmap_{g_gaba}"]
-            ax_tau_pc = axes[f"tau_KCC2_E_{g_gaba}"]
-            ax_tau_in = axes[f"tau_KCC2_I_{g_gaba}"]
-            ax_cbar = axes[f"heatmap_cbar_{g_gaba}"]
-            ax_cbar_v = axes[f"heatmap_hcbar_{g_gaba}"]
+                df = df_num_bursts[df_num_bursts["g_GABA"] == g_gaba]
 
-            df = df_num_bursts[df_num_bursts["g_GABA"] == g_gaba]
-
-            df[f"{constants.TAU_KCC2_E} (s)"] = df[constants.TAU_KCC2_E].apply(
-                lambda x: f"{x:.0f}"
-            )
-            df[constants.TAU_KCC2_E] = (
-                df[constants.TAU_KCC2_E].astype(int).astype("category")
-            )
-            df[constants.TAU_KCC2_I] = (
-                df[constants.TAU_KCC2_I].astype(int).astype("category")
-            )
-
-            mean_num_bursts = (
-                df.groupby(
-                    ["g_GABA", constants.TAU_KCC2_E, constants.TAU_KCC2_I],
-                )["Number of bursts"]
-                .agg(["count", "sum", "mean", "std"])
-                .reset_index()
-                .rename(
-                    columns={
-                        "mean": "Number of bursts",
-                    }
+                df[f"{constants.TAU_KCC2_E} (s)"] = df[constants.TAU_KCC2_E].apply(
+                    lambda x: f"{x:.0f}"
                 )
-            )
-
-            square_df = mean_num_bursts.pivot(
-                index=constants.TAU_KCC2_I,
-                columns=constants.TAU_KCC2_E,
-                values="Number of bursts",
-            )[::-1]
-            sns.heatmap(
-                square_df,
-                ax=ax_heatmap,
-                cbar_ax=ax_cbar,
-                # cbar_kws={"orientation": "horizontal"},
-                cmap="viridis",
-                # mask=square_df == 0,
-                annot=False,
-                fmt=".1f",
-                annot_kws={"fontsize": 8},
-                vmin=0.0,
-                vmax=vmax,
-            )
-
-            # lineplot for tau_KCC2_E
-            df[constants.TAU_KCC2_I] = df[constants.TAU_KCC2_I].astype(int)
-            tau_i = sorted(df[constants.TAU_KCC2_I].unique())
-
-            sns.lineplot(
-                data=df,
-                x=f"{constants.TAU_KCC2_E} (s)",
-                y="Number of bursts",
-                hue=constants.TAU_KCC2_I,
-                hue_order=tau_i,
-                palette="RdPu",
-                ax=ax_tau_pc,
-                legend=True,
-                err_style="bars",
-            )
-            ax_tau_in.set_xlim(0, vmax)
-            ax_tau_pc.set_ylim(0, vmax)
-            ax_cbar.set_ylim(0, vmax)
-
-            ratio = tau_i[1] / tau_i[0]
-            bins = np.append(tau_i, df[constants.TAU_KCC2_I].max() * ratio)
-            sns.histplot(
-                data=df.groupby([constants.TAU_KCC2_I, constants.TAU_KCC2_E]).mean(
-                    numeric_only=True
-                ),
-                y=constants.TAU_KCC2_I,
-                weights="Number of bursts",
-                stat="count",
-                hue=constants.TAU_KCC2_E,
-                hue_order=sorted(df[constants.TAU_KCC2_E].unique()),
-                palette=settings.COLOR.TAU_PAL,
-                multiple="layer",
-                element="step",
-                bins=bins,
-                ax=ax_tau_in,
-            )
-            # set x scale to log 2
-            ax_tau_in.set_yscale("log", base=ratio)
-            ax_tau_in.set_yticks(
-                df[constants.TAU_KCC2_I].unique() + np.diff(bins) / 2
-            )
-            ax_tau_in.set_yticklabels(df[constants.TAU_KCC2_I].unique())
-            ax_tau_in.set_ylim(bins[0], bins[-1])
-
-            sns.despine(ax=ax_tau_pc, bottom=True)
-            ax_tau_pc.set(xlabel="")
-            ax_tau_pc.tick_params(
-                axis="x", which="both", bottom=True, top=False, labelbottom=False
-            )
-            ax_tau_pc.set_yticks(np.arange(0, vmax + 1, 20))
-            ax_tau_pc.set_yticks(np.arange(0, vmax + 1, 10), minor=True)
-            ax_tau_pc.grid(
-                axis="y", which="major", color="lightgrey", linestyle="--", zorder=-1
-            )
-
-            sns.despine(ax=ax_tau_in, left=True)
-            ax_tau_in.set(ylabel="", xlabel="Number of bursts")
-            ax_tau_in.tick_params(
-                axis="y", which="both", left=True, labelleft=False
-            )
-            ax_tau_in.set_xticks(np.arange(0, vmax + 1, 20))
-            ax_tau_in.set_xticks(np.arange(0, vmax + 1, 10), minor=True)
-            ax_tau_in.grid(
-                axis="x", which="major", color="lightgrey", linestyle="--", zorder=-99
-            )
-
-            sns.despine(ax=ax_cbar, left=True, bottom=True)
-            ax_cbar.tick_params(
-                axis="y",
-                which="both",
-                left=False,
-                right=False,
-                labelleft=False,
-                labelright=False,
-            )
-            # LEGEND
-            handles = [
-                plt.Rectangle(
-                    (0, 0),
-                    1,
-                    1,
-                    fill=True,
-                    color=settings.COLOR.TAU_PAL_DICT[i],
-                    alpha=0.5,
-                    edgecolor=settings.COLOR.TAU_PAL_DICT[i],
+                df[constants.TAU_KCC2_E] = (
+                    df[constants.TAU_KCC2_E].astype(int).astype("category")
                 )
-                for i in sorted(df[constants.TAU_KCC2_E].unique())
+                df[constants.TAU_KCC2_I] = (
+                    df[constants.TAU_KCC2_I].astype(int).astype("category")
+                )
+
+                mean_num_bursts = (
+                    df.groupby(
+                        ["g_GABA", constants.TAU_KCC2_E, constants.TAU_KCC2_I],
+                    )["Number of bursts"]
+                    .agg(["count", "sum", "mean", "std"])
+                    .reset_index()
+                    .rename(
+                        columns={
+                            "mean": "Number of bursts",
+                        }
+                    )
+                )
+
+                square_df = mean_num_bursts.pivot(
+                    index=constants.TAU_KCC2_I,
+                    columns=constants.TAU_KCC2_E,
+                    values="Number of bursts",
+                )[::-1]
+
+                pbar.set_postfix_str("heatmap")
+                hm_kwargs = dict(
+                    ax=ax_heatmap,
+                    cbar_ax=ax_cbar,
+                    # cbar_kws={"orientation": "horizontal"},
+                    cmap="viridis",
+                    # mask=square_df == 0,
+                    annot=False,
+                    fmt=".1f",
+                    annot_kws={"fontsize": 8},
+                    vmin=0.0,
+                    vmax=vmax,
+                    square=False,
+                )
+
+                sns.heatmap(
+                    square_df,
+                    **hm_kwargs,
+                )
+
+                for tau_e, tau_i in plot_taus:
+                    if tau_e is None:
+                        continue
+                    # mask square_df to only show tau_e, tau_i
+                    # and annotate with number of bursts
+                    # and include border around square
+                    square_df_masked = square_df.copy()
+                    square_df_masked.loc[:, :] = np.nan
+                    square_df_masked.loc[tau_i, tau_e] = square_df.loc[tau_i, tau_e]
+
+                    # annotate with number of bursts
+                    sns.heatmap(
+                        square_df_masked,
+                        **(
+                            hm_kwargs
+                            | dict(
+                                mask=square_df_masked.isna(),
+                                annot=True,
+                                fmt=".0f",
+                                annot_kws={"fontsize": "xx-small", "color": "white"},
+                            )
+                        ),
+                    )
+                    # get rectangle coordinates
+                    idx = square_df.columns.get_loc(tau_e)
+                    idx_y = square_df.index.get_loc(tau_i)
+
+                    # annotate rectangle with tau_e, tau_i
+                    ax_heatmap.add_patch(
+                        Rectangle(
+                            (idx, idx_y),
+                            1,
+                            1,
+                            linewidth=1,
+                            edgecolor=cmap_tau_e_i[(tau_e, tau_i)],
+                            facecolor="none",
+                        )
+                    )
+                ############################
+                # LINEPLOT of BURSTS
+                ############################
+                # lineplot for tau_KCC2_E
+                df[constants.TAU_KCC2_I] = df[constants.TAU_KCC2_I].astype(int)
+                tau_i = sorted(df[constants.TAU_KCC2_I].unique())
+
+                pbar.set_postfix_str("lineplot")
+                sns.lineplot(
+                    data=df,
+                    x=f"{constants.TAU_KCC2_E} (s)",
+                    y="Number of bursts",
+                    hue=constants.TAU_KCC2_I,
+                    hue_order=tau_i,
+                    palette="RdPu",
+                    ax=ax_tau_pc,
+                    legend=g == 0,
+                    err_style="bars",
+                    errorbar="se",
+                )
+                ax_tau_in.set_xlim(0, vmax)
+                ax_tau_pc.set_ylim(0, vmax)
+                ax_cbar.set_ylim(0, vmax)
+
+                ############################
+                # HISTPLOT of BURSTS
+                ############################
+                ratio = tau_i[1] / tau_i[0]
+                bins = np.append(tau_i, df[constants.TAU_KCC2_I].max() * ratio)
+                pbar.set_postfix_str("histplot")
+                sns.histplot(
+                    data=df.groupby([constants.TAU_KCC2_I, constants.TAU_KCC2_E]).mean(
+                        numeric_only=True
+                    ),
+                    y=constants.TAU_KCC2_I,
+                    weights="Number of bursts",
+                    stat="count",
+                    hue=constants.TAU_KCC2_E,
+                    hue_order=sorted(df[constants.TAU_KCC2_E].unique()),
+                    palette=settings.COLOR.TAU_PAL,
+                    multiple="layer",
+                    element="step",
+                    bins=bins,
+                    ax=ax_tau_in,
+                    # alpha=1,
+                    legend=g == 0,
+                )
+
+                ############################
+                # FORMATTING
+                ############################
+                pbar.set_postfix_str("formatting")
+
+                if g > 0:
+                    ax_heatmap.set_yticklabels([])
+                    ax_heatmap.set_ylabel("")
+                else:
+                    # rotate yticklabels
+                    ax_heatmap.set_yticklabels(
+                        ax_heatmap.get_yticklabels(), rotation=0
+                    )
+                # rotate xticklabels
+                ax_heatmap.set_xticklabels(ax_heatmap.get_xticklabels(), rotation=0)
+                # add minor ticks
+                ax_heatmap.set_xticks(np.arange(0.5, ax_heatmap.get_xlim()[1], 1), minor=True)
+                ax_heatmap.set_yticks(np.arange(0.5, ax_heatmap.get_ylim()[1], 1), minor=True)
+
+                ax_tau_in.set_ylim(bins[0], bins[-1])
+
+                sns.despine(ax=ax_tau_pc, bottom=True)
+                ax_tau_pc.set(xlabel="")
+                ax_tau_pc.tick_params(
+                    axis="x", which="both", bottom=True, top=False, labelbottom=False
+                )
+                ax_tau_pc.set_yticks(np.arange(0, vmax + 1, 20))
+                ax_tau_pc.set_yticks(np.arange(0, vmax + 1, 10), minor=True)
+                ax_tau_pc.grid(
+                    axis="y",
+                    which="major",
+                    color="lightgrey",
+                    linestyle="--",
+                    zorder=-1,
+                )
+                if g > 0:
+                    ax_tau_pc.set_ylabel("")
+                    ax_tau_pc.set_yticklabels([])
+
+                sns.despine(ax=ax_tau_in, left=True)
+                ax_tau_in.set(ylabel="", xlabel="Number of bursts")
+                # set x scale to log 2
+                ax_tau_in.set_yscale("log", base=ratio)
+                ax_tau_in.set_yticks(
+                    df[constants.TAU_KCC2_I].unique() + np.diff(bins) / 2
+                )
+                ax_tau_in.set_yticklabels(df[constants.TAU_KCC2_I].unique())
+                ax_tau_in.tick_params(
+                    axis="y", which="both", left=True, labelleft=False
+                )
+                ax_tau_in.set_xticks(np.arange(0, vmax + 1, 20))
+                ax_tau_in.set_xticks(np.arange(0, vmax + 1, 10), minor=True)
+                ax_tau_in.grid(
+                    axis="x",
+                    which="major",
+                    color="lightgrey",
+                    linestyle="--",
+                    zorder=-99,
+                )
+
+                sns.despine(ax=ax_cbar, left=True, bottom=True)
+                ax_cbar.tick_params(
+                    axis="y",
+                    which="both",
+                    left=False,
+                    right=False,
+                    labelleft=False,
+                    labelright=False,
+                )
+
+                if g == 0:
+                    pbar.set_postfix_str("legend")
+                    # LEGEND
+                    handles = [
+                        plt.Rectangle(
+                            (0, 0),
+                            1,
+                            1,
+                            fill=True,
+                            color=settings.COLOR.TAU_PAL_DICT[i],
+                            alpha=0.5,
+                            edgecolor=settings.COLOR.TAU_PAL_DICT[i],
+                        )
+                        for i in sorted(df[constants.TAU_KCC2_E].unique())
+                    ]
+                    ax_tau_in.legend(
+                        handles,
+                        sorted(df[constants.TAU_KCC2_E].unique(), reverse=False),
+                        loc=(0, 1),
+                        ncol=len(df[constants.TAU_KCC2_E].unique()),
+                        handletextpad=0,
+                        handlelength=0,
+                        columnspacing=0.2,
+                        labelspacing=0,
+                        labelcolor=settings.COLOR.TAU_PAL,
+                        fontsize="x-small",
+                        title=f"{constants.TAU_KCC2_E} (s)",
+                        title_fontsize="small",
+                        frameon=False,
+                    )
+                    leg = ax_tau_pc.legend(
+                        tau_i[::-1],
+                        loc=(1, 0.05),
+                        handletextpad=0,
+                        handlelength=0,
+                        columnspacing=0.2,
+                        labelspacing=0,
+                        labelcolor=sns.color_palette("RdPu_r", len(tau_i)),
+                        fontsize="x-small",
+                        title=f"{constants.TAU_KCC2_I} (s)",
+                        title_fontsize="small",
+                        frameon=False,
+                    )
+
+        ############################
+        # SUMMARY
+        # line plot of mean tau_i vs tau_e
+        # tau_KCC2_E_summary and tau_KCC2_I_summary
+        ############################
+
+        # tau_KCC2_E_summary
+        ax_tau_e_summary = axes["tau_KCC2_E_summary"]
+        ax_tau_i_summary = axes["tau_KCC2_I_summary"]
+
+        df_num_bursts[constants.G_GABA] = df_num_bursts["g_GABA"].astype(int)
+        df_num_bursts[constants.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
+        df_num_bursts[constants.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
+
+        renamed_col = f"Number of bursts\n(mean of {constants.TAU_KCC2_I})"
+        sns.lineplot(
+            data=df_num_bursts.groupby(
+                [constants.G_GABA, constants.TAU_KCC2_E, "run_idx"],
+                as_index=False,
+            ).mean().rename(columns={"Number of bursts": renamed_col}),
+            x=constants.TAU_KCC2_E,
+            y=renamed_col,
+            hue=constants.G_GABA,
+            hue_order=sorted(df_num_bursts[constants.G_GABA].unique()),
+            palette=settings.COLOR.G_GABA_PAL_DICT,
+            ax=ax_tau_e_summary,
+            err_style="bars",
+            errorbar="se",
+        )
+
+        renamed_col = f"Number of bursts\n(mean of {constants.TAU_KCC2_E})"
+        sns.lineplot(
+            data=df_num_bursts.groupby(
+                [constants.G_GABA, constants.TAU_KCC2_I, "run_idx"],
+                as_index=False,
+            ).mean().rename(columns={"Number of bursts": renamed_col}),
+            x=constants.TAU_KCC2_I,
+            y=renamed_col,
+            # stat="count",
+            hue=constants.G_GABA,
+            hue_order=sorted(df_num_bursts[constants.G_GABA].unique()),
+            palette=settings.COLOR.G_GABA_PAL_DICT,
+            # multiple="layer",
+            # element="step",
+            # bins=bins,
+            ax=ax_tau_i_summary,
+            # alpha=1,
+            legend=False,
+            err_style="bars",
+            errorbar="se",
+        )
+        ax_tau_e_summary.set_xscale("log", base=ratio)
+        ax_tau_e_summary.set_xticks(df_num_bursts[constants.TAU_KCC2_E].unique())
+        ax_tau_e_summary.set_xticklabels(df_num_bursts[constants.TAU_KCC2_E].unique())
+        # ax_tau_e_summary.tick_params(axis="y", which="both", left=True, labelleft=False)
+        ax_tau_e_summary.set_yticks(np.arange(0, vmax + 1, 20))
+        ax_tau_e_summary.set_yticks(np.arange(0, vmax + 1, 10), minor=True)
+        ax_tau_e_summary.grid(
+            axis="y",
+            which="major",
+            color="lightgrey",
+            linestyle="--",
+            zorder=-99,
+        )
+
+        ax_tau_i_summary.set_xscale("log", base=ratio)
+        ax_tau_i_summary.set_xticks(df[constants.TAU_KCC2_I].unique())
+        ax_tau_i_summary.set_xticklabels(df[constants.TAU_KCC2_I].unique())
+
+        ax_tau_e_summary.legend(
+            loc=(0, 1),
+            ncol=len(df_num_bursts[constants.G_GABA].unique()),
+            title=f"{constants.G_GABA} (nS)",
+            title_fontsize="medium",
+            fontsize="small",
+            frameon=False,
+            handlelength=0,
+            handletextpad=0,
+            # columnspacing=0.2,
+            labelspacing=0,
+            labelcolor="linecolor",
+        )
+
+    def plot_g_gaba(self, ax_bursts, df_long, gs_bursts, rotation=0):
+        fig_bursts = self.fig
+        full_g_GABA_list = self.g_GABA_list
+        tau_KCC2_I_list = self.tau_KCC2_I_list
+        tau_KCC2_E_list = self.tau_KCC2_E_list
+
+        # full population
+        df_num_bursts = (
+            df_long.groupby(["g_GABA", "KCC2 E", "KCC2 I", "run_idx"], as_index=False)
+            .count()
+            .rename(columns={"Burst start time (s)": "Number of bursts"})
+        )
+        # normalise by first KCC2 I value (averaged over runs)
+        norm = (
+            df_num_bursts.loc[
+                df_num_bursts["KCC2 I"] == tau_KCC2_I_list[0],
+                ["g_GABA", "KCC2 E", "Number of bursts"],
             ]
+            .groupby(["g_GABA", "KCC2 E"])
+            .mean()
+        )
+        tau_kcc2_e_label = f"{constants.TAU_KCC2_E} (s)"
+        tau_kcc2_i_label = f"{constants.TAU_KCC2_I} (s)"
 
-            ax_tau_in.legend(
-                handles,
-                sorted(df[constants.TAU_KCC2_E].unique(), reverse=False),
-                loc=(0, 1),
-                ncol=len(df[constants.TAU_KCC2_E].unique()),
-                handletextpad=0,
-                handlelength=0,
-                columnspacing=0.2,
-                labelspacing=0,
-                labelcolor=settings.COLOR.TAU_PAL,
-                fontsize="x-small",
-                title=f"{constants.TAU_KCC2_E} (s)",
-                title_fontsize="small",
-                frameon=False,
-            )
-            leg = ax_tau_pc.legend(
-                tau_i[::-1],
-                loc=(1, 0.05),
-                handletextpad=0,
-                handlelength=0,
-                columnspacing=0.2,
-                labelspacing=0,
-                labelcolor=sns.color_palette("RdPu_r", len(tau_i)),
-                fontsize="x-small",
-                title=f"{constants.TAU_KCC2_I} (s)",
-                title_fontsize="small",
-                frameon=False,
-            )
+        for kcc2 in tau_KCC2_E_list:
+            mask = df_num_bursts["KCC2 I"] == kcc2
+            for i, s in df_num_bursts.loc[mask].iterrows():
+                g_GABA, KCC2_E = s["g_GABA"], s["KCC2 E"]
+                try:
+                    df_num_bursts.loc[i, "norm"] = (
+                        100 * s["Number of bursts"] / norm.loc[g_GABA, KCC2_E].values
+                    )
+                except BaseException:
+                    # skip where not applicable
+                    pass
+        df_num_bursts.rename(
+            columns={
+                "KCC2 I": tau_kcc2_i_label,
+                "KCC2 E": tau_kcc2_e_label,
+                "g_GABA": constants.G_GABA,
+            },
+            inplace=True,
+        )
+        ax_bursts_g: plt.Axes = fig_bursts.add_subplot(
+            gs_bursts[0, -1], sharey=ax_bursts
+        )
+        ax_bursts_norm_g: plt.Axes = fig_bursts.add_subplot(gs_bursts[1, -1])
 
+        sns.lineplot(
+            y="Number of bursts",
+            x=tau_kcc2_e_label,
+            hue=constants.G_GABA,
+            # hue_order=df_num_bursts['g_GABA'].unique(),
+            err_style="bars",
+            palette=settings.COLOR.G_GABA_PAL_DICT,
+            data=df_num_bursts,
+            ax=ax_bursts_g,
+            legend=False,
+        )
+
+        # sns.barplot(y='Number of bursts', x=tau_kcc2_e_label, hue=constants.G_GABA,
+        #             # hue_order=df_num_bursts['g_GABA'].unique(),
+        #             errwidth=1, capsize=0.1,
+        #             palette=palette,
+        #             data=df_num_bursts, ax=ax_bursts_g)
+        ax_bursts_g.legend(
+            full_g_GABA_list,
+            loc=(0, 1),
+            frameon=False,
+            fontsize="x-small",
+            title=constants.G_GABA + "(nS)",
+            title_fontsize="small",
+            handlelength=0,
+            ncol=len(full_g_GABA_list),
+            mode="expand",
+            labelcolor=[settings.COLOR.G_GABA_PAL_DICT[g] for g in full_g_GABA_list],
+        )
+
+        ax_bursts_g.set_xscale("log")
+        ax_bursts_g.set_xticks(tau_KCC2_E_list)
+        ax_bursts_g.set_xticks([], minor=True)
+        ax_bursts_g.set_xticklabels(
+            tau_KCC2_E_list, rotation=rotation, ha="center", va="top"
+        )
+        ax_bursts_g.xaxis.set_major_formatter(ticker.FormatStrFormatter("%0.0f"))
+        # sns.violinplot(y='norm', x='KCC2 I', hue='g_GABA',
+        #                split=True, scale="count",
+        #                inner="sticks",
+        #                scale_hue=False, cut=0,
+        #                lw=0.1,
+        #                palette='Greens',
+        #                data=df_num_bursts)
+        sns.lineplot(
+            y="Number of bursts",
+            x=tau_kcc2_i_label,
+            hue=constants.G_GABA,
+            err_style="bars",
+            palette=settings.COLOR.G_GABA_PAL_DICT,
+            data=df_num_bursts.groupby(
+                [constants.G_GABA, tau_kcc2_i_label, "run_idx"], as_index=False
+            ).sum(),
+            legend=False,
+            ax=ax_bursts_norm_g,
+        )
+        ax_bursts_norm_g.set_xscale("log")
+        ax_bursts_norm_g.set_xticks(tau_KCC2_I_list)
+        ax_bursts_norm_g.set_xticks([], minor=True)
+        ax_bursts_norm_g.set_xticklabels(
+            tau_KCC2_I_list, rotation=rotation, ha="center", va="top"
+        )
+        ax_bursts_norm_g.xaxis.set_major_formatter(ticker.FormatStrFormatter("%0.0f"))
+        ax_bursts_norm_g.yaxis.set_major_locator(MaxNLocator(5))
+        ax_bursts_norm_g.yaxis.set_minor_locator(MaxNLocator(10))
+        ax_bursts_norm_g.set_xlim(0)
+        # ax_bursts_norm_g.set_ylim(60, 140)
+        # ax_bursts_norm_g.set_ylabel("")
+        # ax_bursts_norm_g.set_yticklabels([])
+        # ax_bursts_norm_g.axhline(y=100, c='k', alpha=0.5, ls=':')
     def plot_ii0(
         self, df_run, fig_bursts, gs, plot_taus, plot_g_GABA_list, burst_window
     ):
