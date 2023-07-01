@@ -429,7 +429,7 @@ class MultiRunFigure(LRDFigure):
                     _df.to_hdf(file_name, key="df", complevel=7, complib="blosc:zstd")
                     logger.debug("\t dataframe saved to cache")
                 sim_files[run_key] = self.sim_name
-        logger.debug("loading from cache")
+        logger.info("loading from cache")
         if save_vars:
             for run_key, sim_name in sim_files.items():
                 file_name = os.path.join("temp", sim_name + ".h5")
@@ -437,11 +437,12 @@ class MultiRunFigure(LRDFigure):
                 self.load_variables(file_name, save_dest=save_dests[run_key])
         if os.path.isfile(vaex_fname) and use_vaex:
             import vaex  # noqa
-
+            logger.info(f"loading {vaex_fname}")
             self.results = self.df = vaex.open(vaex_fname)
             logger.info(f"loaded {self.df.column_names} from cache {vaex_fname}")
             return self
         if os.path.isfile(fname):
+            logger.info(f"loading {fname}")
             self.results = self.df = pd.read_hdf(fname, key="df")
             logger.info(
                 f"loaded {self.df.columns.names} ({self.df.shape}) from cache {fname}"
@@ -473,6 +474,7 @@ class MultiRunFigure(LRDFigure):
 
             logger.debug("\t loaded from cache")
             if use_vaex:
+                logger.debug("\t converting to vaex")
                 import vaex
 
                 # dataframe converted to long-form as vaex doesn't support multiindex
@@ -490,6 +492,7 @@ class MultiRunFigure(LRDFigure):
                 ).export(vaex_file_name)
                 logger.debug("\t converted to vaex")
             else:
+                logger.debug("\t assigning to DataFrame")
                 if self.df is None:
                     with warnings.catch_warnings():
                         from tables import NaturalNameWarning, PerformanceWarning
@@ -522,7 +525,7 @@ class MultiRunFigure(LRDFigure):
                 axis="columns", inplace=True
             )  # speed up access (unsorted is O(n), but sorted is O(1))
             # save complete df
-            logger.debug(f"saving {self.df.columns}")
+            logger.debug(f"saving {fname} with {self.df.columns}")
             self.df.to_hdf(fname, key="df")
             logger.debug("saved")
         self.results = self.df
