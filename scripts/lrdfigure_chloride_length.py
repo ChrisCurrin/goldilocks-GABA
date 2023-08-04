@@ -361,6 +361,7 @@ class ChlorideLength(MultiRunFigure):
                     adjust_spines(ax_r, [], 0, sharedx=True, sharedy=True)
                     ax_gaba.set_ylabel(f"{constants.EGABA}\n(mV)")
                     c = settings.lighten_color(settings.COLOR.K, lighten_g[g])
+                    c = settings.COLOR.G_GABA_SM.to_rgba(g_GABA)
                     ax_gaba.annotate(
                         f"{constants.G_GABA}\n{g_GABA} nS",
                         xy=(-0.05, 1.05),
@@ -567,20 +568,20 @@ class ChlorideLength(MultiRunFigure):
 
 
 if __name__ == "__main__":
-    cl = ChlorideLength(
-        g_GABAs=(
-            50,
-            #  25, 100
-        ),
+    cl_length = ChlorideLength(
+        g_GABAs=(50, 25, 100),
+        lengths=(15, 10, 7.5, 6.25, 5),
         seeds=(
             None,
             1038,
             1337,
             1111,
+            1234,
         ),
     )
-    cl.run(duration=600)
-    cl.plot(timeit=True, colorbar=False)
+
+    cl_length.run(duration=600)
+    cl_length.plot(timeit=True, colorbar=False)
     if settings.SAVE_FIGURES:
-        cl.save_figure(use_args=False, close=False)
+        cl_length.save_figure(use_args=False, close=False)
     plt.show()

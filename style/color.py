@@ -24,6 +24,7 @@ def get_benzo_color(drug: float, ampa: float = None) -> Tuple[str, Union[str, No
     from settings import COLOR, benzo_map
 
     ampa_color = None if ampa is None else COLOR.G_AMPA_SM.to_rgba(ampa)
+    return COLOR.G_GABA_SM.to_rgba(drug * 50), ampa_color
     if drug in benzo_map:
         return benzo_map[drug], ampa_color
     return benzo_map["default"], ampa_color

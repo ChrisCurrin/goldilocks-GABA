@@ -6,12 +6,19 @@
   },
   "python.formatting.provider": "none",
   "workbench.colorCustomizations": {
-    "sash.hoverBorder": "#3399ff",
-    "statusBar.background": "#007fff",
-    "statusBar.foreground": "#e7e7e7",
-    "statusBarItem.hoverBackground": "#3399ff",
-    "statusBarItem.remoteBackground": "#007fff",
-    "statusBarItem.remoteForeground": "#e7e7e7"
+    "activityBar.activeBackground": "#c9fdc9",
+    "activityBar.background": "#c9fdc9",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#8484fa",
+    "activityBarBadge.foreground": "#15202b",
+    "sash.hoverBorder": "#c9fdc9",
+    "statusBar.background": "#98fb98",
+    "statusBar.foreground": "#15202b",
+    "statusBarItem.hoverBackground": "#67f967",
+    "statusBarItem.remoteBackground": "#98fb98",
+    "statusBarItem.remoteForeground": "#15202b"
   },
-  "peacock.color": "#007fff"
+  "peacock.color": "#007fff",
+  "peacock.remoteColor": "#98fb98"
 }

@@ -33,7 +33,7 @@ class Drugs(MultiRunFigure):
 
     def __init__(
         self,
-        benzo_strengths=(0, 0.5, 1, 2, 5, 10),
+        benzo_strengths=(0, 0.25, 0.5, 1, 2, 4, 8),
         E_Cl_0s=(-88, -60),
         duration=600,
         **kwargs,
@@ -65,6 +65,7 @@ class Drugs(MultiRunFigure):
         stats_to_plot=("Number", "Amplitude", "Duration"),
         stats_heights=None,
         markersize=4,
+        drugs_to_plot=None,
         **kwargs,
     ):
         super().plot(**kwargs)
@@ -84,11 +85,12 @@ class Drugs(MultiRunFigure):
         # bins = [0, benzo_onset_t, T]
         picro_drugs = np_drugs[np_drugs < 1]
         benzo_drugs = np_drugs[np_drugs > 1]
-        bs_to_plot = []
-        if len(picro_drugs):
-            bs_to_plot.append(picro_drugs[0])
-        if len(benzo_drugs):
-            bs_to_plot.append(benzo_drugs[-1])
+        if drugs_to_plot is None:
+            drugs_to_plot = []
+            if len(picro_drugs):
+                drugs_to_plot.append(picro_drugs[0])
+            if len(benzo_drugs):
+                drugs_to_plot.append(benzo_drugs[-1])
 
         plot_egaba = "E_GABA" in vars_to_plot
 
@@ -114,7 +116,7 @@ class Drugs(MultiRunFigure):
         gs.update(top=0.98, right=0.98, hspace=0.3, wspace=0.2)
 
         # create explanatory gridspecs
-        sub_gs_var = {bs: {} for bs in bs_to_plot}
+        sub_gs_var = {bs: {} for bs in drugs_to_plot}
         sub_gs_var[1] = {}
         sub_gs_stats = {}
         ax_egabas = {}
@@ -131,7 +133,7 @@ class Drugs(MultiRunFigure):
                 # one egaba trace
                 if plot_egaba:
                     ax_egabas[ecl] = fig.add_subplot(gs_explan[0, j])
-                n_rows = len(bs_to_plot) * 4
+                n_rows = len(drugs_to_plot) * 4
                 gs_blocks = GridSpecFromSubplotSpec(
                     n_rows,
                     2,
@@ -148,8 +150,8 @@ class Drugs(MultiRunFigure):
                     hspace=0.0,
                     height_ratios=var_height_ratios,
                 )
-                i_bs = range(0, len(bs_to_plot) * 3, height)
-                for i, bs in zip(i_bs, bs_to_plot):
+                i_bs = range(0, len(drugs_to_plot) * 3, height)
+                for i, bs in zip(i_bs, drugs_to_plot):
                     gs_traces = GridSpecFromSubplotSpec(
                         len(vars_to_plot),
                         1,
@@ -160,10 +162,10 @@ class Drugs(MultiRunFigure):
                     sub_gs_var[bs][ecl] = gs_traces
         else:
             gs_explan = GridSpecFromSubplotSpec(
-                len(bs_to_plot), len(self.E_Cl_0s), subplot_spec=gs[0, :], hspace=0.15
+                len(drugs_to_plot), len(self.E_Cl_0s), subplot_spec=gs[0, :], hspace=0.15
             )
 
-            for i, bs in enumerate(bs_to_plot):
+            for i, bs in enumerate(drugs_to_plot):
                 if bs not in sub_gs_var:
                     sub_gs_var[bs] = {}
                     sub_gs_stats[bs] = {}
@@ -219,7 +221,7 @@ class Drugs(MultiRunFigure):
                 if ampa_color is not None:
                     color = ampa_color
                 burst_colors.append(color)
-                if drug in bs_to_plot:
+                if drug in drugs_to_plot:
                     # get and plot variables
                     self.plot_vars(
                         fig,
@@ -324,6 +326,7 @@ class Drugs(MultiRunFigure):
         labels = []
         xlabel = f"{constants.G_GABA} modulation ($\\times $ 50 nS)"
         for stat_idx, stat_name in enumerate(stats_to_plot):
+            logger.debug(f"plotting {stat_name}")
             if stat_name == "Number":
                 marker = "o"
                 label = "Number of Bursts\n(per min)"
@@ -354,7 +357,7 @@ class Drugs(MultiRunFigure):
                 y=label,
                 hue=xlabel,
                 palette=sns.blend_palette(hues, n_colors=len(hues)),
-                data=df_stat,
+                data=df_stat.astype(float),
                 linewidth=0.1,
                 marker=marker,
                 zorder=-99,
@@ -467,7 +470,7 @@ class Drugs(MultiRunFigure):
             ha="center",
             fontsize=fontsize,
         )
-        if drug == 0:
+        if drug == self.benzo_strengths[0]:
             use_scalebar(
                 _ax_trace,
                 matchx=False,
@@ -560,7 +563,7 @@ class Drugs(MultiRunFigure):
                 key = _var
             _ax = _ax_vars[key] if key in _ax_vars else None
 
-            _ax = fig.add_subplot(
+            _ax: plt.Axes = fig.add_subplot(
                 _gs_var[v],
                 sharex=_ax if not split else None,
                 sharey=_ax if sharey else None,
@@ -583,7 +586,7 @@ class Drugs(MultiRunFigure):
                     else:
                         egaba = _var_df.iloc[0]
                     plot_state_colorbar(
-                        self.df[drug, ecl, np.nan, 0],
+                        self.df[drug, ecl, 0],
                         "E_GABA_all",
                         fig=fig,
                         ax=_ax,
@@ -593,12 +596,12 @@ class Drugs(MultiRunFigure):
                     _ax.annotate(
                         f"{constants.EGABA} = {egaba:.1f} mV",
                         xy=(0, 1),
-                        fontsize="x-small",
+                        fontsize="large",
                         ha="left",
                         va="top",
-                        path_effects=[
-                            patheffects.withStroke(linewidth=1, foreground="w")
-                        ],
+                        # path_effects=[
+                        #     patheffects.withStroke(linewidth=1, foreground="w")
+                        # ],
                     )
                 if drug != 1:
                     plot_drugwash(_ax)
@@ -615,6 +618,7 @@ class Drugs(MultiRunFigure):
                     _ax.set_xlim(benzo_onset_t, benzo_off_t)
             else:
                 _ax.set_xlim(0, _var_df.index[-1])
+            _ax.set_xlabel("")
             adjust_spines(_ax, [], 0)
 
 
@@ -624,10 +628,10 @@ if __name__ == "__main__":
     pcl = 1 - phco3
     mv_step = 2
     time_per_value = 60
-    egabas = [-74, -60, -58, -46]
+    egabas = [-74, -60, -46]
     E_Cl_0s = [round((e - phco3 * ehco3) / pcl, 2) for e in egabas]
-    drugs = Drugs(benzo_strengths=(0, 0.25, 0.5, 1, 2, 3, 4, 5), E_Cl_0s=E_Cl_0s)
+    drugs = Drugs(benzo_strengths=(0, 0.25, 0.5, 1, 2, 4, 8), E_Cl_0s=E_Cl_0s)
     drugs.run()
-    drugs.plot()
+    drugs.plot(drugs_to_plot=[0.25, 4])
     drugs.save_figure(use_args=False, close=False)
     plt.show()

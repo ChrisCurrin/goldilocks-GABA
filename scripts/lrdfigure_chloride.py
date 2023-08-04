@@ -263,7 +263,7 @@ class Chloride(MultiRunFigure):
                 if g == 0:
                     egaba_start_value = 0.8 * E_Cl_0 + 0.2 * -18
                     ax_gaba.annotate(
-                        f"{constants.E_GABA} = {egaba_start_value:.1f} mV",
+                        f"{constants.EGABA} = {egaba_start_value:.1f} mV",
                         xy=(0, egaba_start_value),
                         fontsize="large",
                         bbox=dict(boxstyle="round", fc="w", ec="w", pad=0.01),
@@ -362,7 +362,8 @@ class Chloride(MultiRunFigure):
                     ax_r.grid(True, "major", "x")
                     adjust_spines(ax_r, [], 0, sharedx=True, sharedy=True)
                     ax_gaba.set_ylabel(f"{constants.EGABA}\n(mV)")
-                    c = settings.lighten_color(settings.COLOR.K, lighten_g[g])
+                    # c = settings.lighten_color(settings.COLOR.K, lighten_g[g])
+                    c = settings.COLOR.G_GABA_SM.to_rgba(g_GABA)
                     ax_gaba.annotate(
                         f"{constants.G_GABA}\n{g_GABA} nS",
                         xy=(-0.05, 1.05),

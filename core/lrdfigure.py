@@ -20,6 +20,7 @@ from brian2 import (
     pA,
     second,
 )
+from tqdm import tqdm
 
 import core.sim as sim
 from style.figure import plot_save
@@ -189,10 +190,14 @@ class LRDFigure(object):
                     def smooth_rate(width=None, window=None):
                         if width is None:
                             return smooth_vals
-                        return vals.rolling(
-                            window=pd.to_timedelta(width / ms, unit="ms"),
-                            win_type=None if window == "flat" else window,
-                        ).mean().values
+                        return (
+                            vals.rolling(
+                                window=pd.to_timedelta(width / ms, unit="ms"),
+                                win_type=None if window == "flat" else window,
+                            )
+                            .mean()
+                            .values
+                        )
 
                     df.smooth_rate = smooth_rate
                 save_dest[clean_key] = df
@@ -435,6 +440,8 @@ class MultiRunFigure(LRDFigure):
                 file_name = os.path.join("temp", sim_name + ".h5")
                 save_dests.setdefault(run_key, {})
                 self.load_variables(file_name, save_dest=save_dests[run_key])
+
+        # try load all the results from a single dataframe
         if os.path.isfile(vaex_fname) and use_vaex:
             import vaex  # noqa
             logger.info(f"loading {vaex_fname}")
@@ -444,10 +451,17 @@ class MultiRunFigure(LRDFigure):
         if os.path.isfile(fname):
             logger.info(f"loading {fname}")
             self.results = self.df = pd.read_hdf(fname, key="df")
-            logger.info(
-                f"loaded {self.df.columns.names} ({self.df.shape}) from cache {fname}"
-            )
-            return self
+            if len(self.df.columns.unique(level="run_idx")) == len(run_idxs):
+                logger.info(
+                    f"loaded {self.df.columns.names} ({self.df.shape}) from cache {fname}"
+                )
+                return self
+            else:
+                logger.info(
+                    f"found {fname}, but had different number of runs than requested"
+                )
+                logger.debug(f"repr of self: \n{repr(self)}")
+                self.results = self.df = None
 
         if use_vaex:
             try:
@@ -455,7 +469,7 @@ class MultiRunFigure(LRDFigure):
             except OSError:
                 pass
 
-        for run_key, sim_name in sim_files.items():
+        for run_key, sim_name in tqdm(sim_files.items(), desc="loading files from cache"):
             file_name = os.path.join("temp", sim_name + ".h5")
             logger.debug(f"{sim_name}")
             vaex_file_name = vaex_multi_fname.replace("*", f"{run_key}")
@@ -499,6 +513,7 @@ class MultiRunFigure(LRDFigure):
 
                         warnings.simplefilter("ignore", NaturalNameWarning)
                         warnings.simplefilter("ignore", PerformanceWarning)
+
                         columns = pd.MultiIndex.from_product(
                             [*self.iterables, run_idxs, _df.columns],
                             names=[*self.var_names, "run_idx", "var"],
@@ -516,7 +531,7 @@ class MultiRunFigure(LRDFigure):
                 shutil.rmtree(os.path.split(vaex_multi_fname)[0])
             except OSError as err:
                 logger.error(
-                    f"Error occured while deleteing {os.path.split(vaex_multi_fname)[0]}, please dleete "
+                    f"Error occured while deleteing {os.path.split(vaex_multi_fname)[0]}, please delete "
                     f"manually. Error: \n {err}"
                 )
         else:

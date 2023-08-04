@@ -233,8 +233,9 @@ class COLOR:
     C_E_I = Pu
     C_I_I = Cy
 
-    blockGABA = Pi
-    benzoGABA = "#98fb98"
+    blockGABA = "#ca01a9"  # pink
+    benzoGABA = "#00c6ff"  # blue
+    # benzoGABA = "#98fb98" # green
 
     EIA_list = [exc, inh, K]
     g_list = [NMDA, AMPA, GABA]
@@ -255,34 +256,41 @@ class COLOR:
 
     CONN_BLEND = dict(E=R3_B1, I=R1_B3)
 
-    ECL = ecl = "#98fb98"
-
+    ECL = ecl = "#00bf71"  # green
+    EGABA = ECL
     # to get the appropriate EGABA color in range [-80, -40] call EGABA_SM.to_rgba(<egaba value>)
-    EGABA_SM = ScalarMappable(norm=Normalize(-80, -40), cmap="Blues_r")
+    # EGABA_SM = ScalarMappable(norm=Normalize(-80, -40), cmap="Blues_r")
+    EGABA_SM = ScalarMappable(
+        norm=Normalize(-80, -40),
+        cmap=sns.light_palette(ECL, as_cmap=True, reverse=True),  # greens
+    )
     EGABA_2_SM = ScalarMappable(
         norm=TwoSlopeNorm(vmin=-74, vcenter=-60, vmax=-42), cmap="coolwarm"
     )
     G_AMPA_SM = ScalarMappable(norm=Normalize(0, 20), cmap="Reds_r")
 
     # TAU_PAL = sns.color_palette("hls", n_colors=len(TAU_KCC2_LIST), desat=1.)
-    TAU_PAL = sns.color_palette(
-        [
-            "#29AF8C",
-            # "#97BE49",
-            # "#4CC756",
-            "#73CC33",
-            "#3D9CCC",
-            "#7C60C6",
-            "#D62466",
-            "#D58C2E",
-            "#C9492C",
-            "#44546A",
-            "#21406B",
-        ]
-    )
+    # TAU_PAL = sns.color_palette(
+    #     [
+    #         "#29AF8C",
+    #         # "#97BE49",
+    #         # "#4CC756",
+    #         "#73CC33",
+    #         "#3D9CCC",
+    #         "#7C60C6",
+    #         "#D62466",
+    #         "#D58C2E",
+    #         "#C9492C",
+    #         "#44546A",
+    #         "#21406B",
+    #     ]
+    # )
+    KCC2 = "#a3195b"
+    NKCC1 = "#e94e1b"
+    TAU_PAL = sns.blend_palette(["#C1DB14", "#DC8C14", "#EB1528"], n_colors=len(TAU_KCC2_LIST))
     TAU_PAL_DICT = dict(zip(TAU_KCC2_LIST, TAU_PAL))
     TAU_SM = ScalarMappable(
-        norm=LogNorm(1, max(TAU_KCC2_LIST)),
+        norm=LogNorm(min(TAU_KCC2_LIST), max(TAU_KCC2_LIST)),
         cmap=LinearSegmentedColormap.from_list("TAU_cm", TAU_PAL),
     )
 
@@ -293,8 +301,10 @@ class COLOR:
     G_GABA_SM = ScalarMappable(
         norm=G_GABA_Norm(50, 1, 1000),
         cmap=sns.blend_palette(
-            [blockGABA] * 5 + [K] + [benzoGABA] * 5,
-            n_colors=11,
+            sns.light_palette(blockGABA, 10, reverse=True)[:-1]
+            + [K]
+            + sns.dark_palette(benzoGABA, 10, reverse=True)[:-1],
+            n_colors=19,
             as_cmap=True,
         ),
     )
@@ -319,7 +329,7 @@ class COLOR:
 benzo_map = {"default": COLOR.average}
 _picro_N = np.round(np.linspace(0, 1, 100, endpoint=False), 2)
 for i in _picro_N:
-    benzo_map[i] = lighten_color(COLOR.Pi, 1 - i + 0.3 * i)  # [1, 0.3]
+    benzo_map[i] = lighten_color(COLOR.blockGABA, 1 - i + 0.3 * i)  # [1, 0.3]
 _benzo_N = np.linspace(1, 10, 19)
 for i in _benzo_N:
     benzo_map[i] = lighten_color(COLOR.benzoGABA, 1 + i * 2 / 10)  # [1,2]
