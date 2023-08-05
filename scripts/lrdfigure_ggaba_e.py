@@ -973,19 +973,19 @@ class Gve(MultiRunFigure):
         )
         wide_df.index = wide_df.index.astype(int)
         wide_df.columns = wide_df.columns.astype(int)
-        sns.lineplot(
-            x=constants.G_GABA,
-            y=self.num_bursts_col,
-            hue=constants.EGABA,
-            hue_order=egabas,
-            hue_norm=norm,
-            palette=cmap,
-            data=wide_df.reset_index()
-            .melt(id_vars=constants.G_GABA, value_name=self.num_bursts_col)
-            .query(f"{constants.EGABA} in {egabas.tolist()}"),
-            ax=ax,
-            legend=False,
-        )
+        # sns.lineplot(
+        #     x=constants.G_GABA,
+        #     y=self.num_bursts_col,
+        #     hue=constants.EGABA,
+        #     hue_order=egabas,
+        #     hue_norm=norm,
+        #     palette=cmap,
+        #     data=wide_df.reset_index()
+        #     .melt(id_vars=constants.G_GABA, value_name=self.num_bursts_col)
+        #     .query(f"{constants.EGABA} in {egabas.tolist()}"),
+        #     ax=ax,
+        #     legend=False,
+        # )
         # plot again for error bars (previous plot omits error bars but includes 0 values)
         sns.lineplot(
             x=constants.G_GABA,

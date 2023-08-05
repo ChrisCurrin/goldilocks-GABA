@@ -262,7 +262,7 @@ class COLOR:
     # EGABA_SM = ScalarMappable(norm=Normalize(-80, -40), cmap="Blues_r")
     EGABA_SM = ScalarMappable(
         norm=Normalize(-80, -40),
-        cmap=sns.light_palette(ECL, as_cmap=True, reverse=True),  # greens
+        cmap=sns.light_palette(ECL, as_cmap=True),  # greens
     )
     EGABA_2_SM = ScalarMappable(
         norm=TwoSlopeNorm(vmin=-74, vcenter=-60, vmax=-42), cmap="coolwarm"

@@ -426,7 +426,7 @@ class Tau(MultiRunFigure):
                         _ax.set_title(
                             f"{constants.G_GABA} = {g_GABA} nS",
                             fontsize="small",
-                            color=settings.COLOR.G_GABA_PAL_DICT[g_GABA],
+                            color=settings.COLOR.G_GABA_SM.to_rgba(g_GABA),
                         )
                     if tau_idx == len(plot_taus) - 1 and g == len(plot_g_GABA_list) - 1:
                         # create scalebar representative of all traces
@@ -549,7 +549,7 @@ class Tau(MultiRunFigure):
                 ax_bursts.set_title(
                     f"{constants.G_GABA} = {g_GABA} nS",
                     fontsize="small",
-                    color=settings.COLOR.G_GABA_PAL_DICT[g_GABA],
+                    color=settings.COLOR.G_GABA_SM.to_rgba(g_GABA),
                     va="top",
                 )
 
@@ -609,7 +609,7 @@ class Tau(MultiRunFigure):
                 ax_bursts_norm.set_title(
                     f"{constants.G_GABA} = {g_GABA} nS",
                     fontsize="small",
-                    color=settings.COLOR.G_GABA_PAL_DICT[g_GABA],
+                    color=settings.COLOR.G_GABA_SM.to_rgba(g_GABA),
                     va="top",
                 )
                 # ax_bursts_norm.yaxis.set_major_locator(MaxNLocator(4))
@@ -943,7 +943,7 @@ class Tau(MultiRunFigure):
                     _ax.set_title(
                         f"{constants.G_GABA} = {g_gaba} nS",
                         fontsize="small",
-                        color=settings.COLOR.G_GABA_PAL_DICT[g_gaba],
+                        color=settings.COLOR.G_GABA_SM.to_rgba(g_gaba),
                     )
                 if tau_idx == len(plot_taus) - 1 and g == len(plot_ggaba) - 1:
                     # create scalebar representative of all traces
@@ -1125,7 +1125,9 @@ class Tau(MultiRunFigure):
                     element="step",
                     bins=bins,
                     ax=ax_tau_in,
-                    # alpha=1,
+                    alpha=1,
+                    edgecolor="black",
+                    linewidth=0.5,
                     legend=g == 0,
                 )
 
@@ -1279,7 +1281,6 @@ class Tau(MultiRunFigure):
             y=renamed_col,
             hue=constants.G_GABA,
             hue_order=g_gaba_order,
-            # palette=settings.COLOR.G_GABA_PAL_DICT,
             palette=palette,
             ax=ax_tau_e_summary,
             err_style="bars",
@@ -1466,12 +1467,23 @@ class Tau(MultiRunFigure):
         # ax_bursts_norm_g.axhline(y=100, c='k', alpha=0.5, ls=':')
 
     def plot_ii0(
-        self, df_run, fig_bursts, gs, plot_taus, plot_g_GABA_list, burst_window
+        self,
+        df_run,
+        plot_taus,
+        plot_g_GABA_list,
+        burst_window,
+        gs=None,
+        fig_bursts=None,
     ):
         """No I to I connections"""
         from brian2 import defaultclock
 
-        gs_egaba = GridSpecFromSubplotSpec(len(plot_taus), 1, gs[0, -1], hspace=0.1)
+        if gs is None:
+            fig_bursts, gs_egaba = new_gridspec(
+                len(plot_taus),
+                len(plot_g_GABA_list),
+            )
+
         ax_egaba = None
         for idx, (tau_e, tau_i) in enumerate(plot_taus):
             ax_egaba = fig_bursts.add_subplot(gs_egaba[idx], sharey=ax_egaba)
