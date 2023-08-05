@@ -455,13 +455,13 @@ if __name__ == "__main__":
     steps = values - 1
     duration = values * time_per_value
     ecl = [round((e - phco3 * ehco3) / pcl, 2) for e in egaba]
-    # [-74, -40] -> 34 dif /2 -> 17 values -1 -> 16 steps -> 100 s per value -> 1600 s
+    # [-74, -40] -> 34 dif /2 -> 17 steps -> 60 s per value -> 1020 s
 
     explain.run(
         duration=duration,
         num_ecl_steps=steps,
         E_Cl_0=ecl[0],
-        E_Cl_end=ecl[1],
+        E_Cl_end=ecl[-1],
     )
     explain.plot()
     explain.save_figure()
