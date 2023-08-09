@@ -344,7 +344,29 @@ class LRDFigure(object):
 
 @hashable
 class MultiRunFigure(LRDFigure):
-    """For figures that rely on running sim multiple times, different caching strategies are required"""
+    """
+    A subclass of LRDFigure for figures that rely on running simulations multiple times with different parameter combinations.
+    This class provides caching strategies to save memory and time when running multiple simulations.
+    
+    Attributes:
+        monitors (dict): A dictionary of boolean values indicating which monitors to use during simulation.
+        ignore (list): A list of strings representing the names of columns to ignore and drop from the DataFrame.
+        seeds (tuple): A tuple of integers representing the random seeds to use for each simulation run.
+        var_idx (dict): A dictionary mapping variable names to their corresponding index in the iterable list.
+        var_names (list): A list of strings representing the names of variables used in the simulation.
+        iterables (list): A list of iterables representing the range of values for each variable used in the simulation.
+        default_params (dict): A dictionary of default parameters to use in the simulation.
+        product_map (OrderedDict): An ordered dictionary mapping variable names to their corresponding range of values and title.
+        df (pd.DataFrame): A pandas DataFrame containing the simulation results.
+    
+    Methods:
+        __init__(self, product_map: OrderedDict, seeds=(None,), default_params=None, **kwargs): 
+            Initializes a new instance of the MultiRunFigure class.
+        __repr__(self): 
+            Returns a string representation of the MultiRunFigure object.
+        run(self, subsample=10, save_vars=False, use_vaex=False, **kwargs): 
+            Runs the simulation with the given parameters and returns the results as a pandas DataFrame.
+    """
 
     monitors = {
         "sp_all": False,

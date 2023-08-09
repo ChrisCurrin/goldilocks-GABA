@@ -744,8 +744,8 @@ class Tau(MultiRunFigure):
         timeit=True,
         burst_window=100 * second,
         plot_ggaba=None,
-        rotation=45,
         df_num_bursts=None,
+        hist_err_bars=False,
         **kwargs,
     ):
         super().plot(**kwargs)
@@ -1028,7 +1028,7 @@ class Tau(MultiRunFigure):
                     ax=ax_heatmap,
                     cbar_ax=ax_cbar,
                     # cbar_kws={"orientation": "horizontal"},
-                    cmap="viridis",
+                    cmap="Greys",
                     # mask=square_df == 0,
                     annot=False,
                     fmt=".1f",
@@ -1095,7 +1095,7 @@ class Tau(MultiRunFigure):
                     y="Number of bursts",
                     hue=constants.TAU_KCC2_I,
                     hue_order=tau_i,
-                    palette="RdPu",
+                    palette=sns.color_palette("RdPu", len(tau_i), desat=0.6),
                     ax=ax_tau_pc,
                     legend=g == 0,
                     err_style="bars",
@@ -1111,16 +1111,35 @@ class Tau(MultiRunFigure):
                 ratio = tau_i[1] / tau_i[0]
                 bins = np.append(tau_i, df[constants.TAU_KCC2_I].max() * ratio)
                 pbar.set_postfix_str("histplot")
+                mean = df.groupby(
+                    [constants.TAU_KCC2_I, constants.TAU_KCC2_E], as_index=False
+                ).mean(numeric_only=True)
+                sem = df.groupby(
+                    [constants.TAU_KCC2_I, constants.TAU_KCC2_E], as_index=False
+                ).sem(numeric_only=True)
+                mean["Tau (PC, IN)"] = mean.apply(
+                    lambda x: f"{x[constants.TAU_KCC2_E]:.0f}, {x[constants.TAU_KCC2_I]:.0f}",
+                    axis=1,
+                )
+
+                # cmap_tau_e_i_str = {
+                #     f"{tau_e:.0f}, {tau_i:.0f}": settings.lighten_color(
+                #         settings.COLOR.TAU_PAL_DICT[tau_e],
+                #         1.2 if tau_i > tau_e else 0.8 if tau_i < tau_e else 1,
+                #     )
+                #     for (tau_e, tau_i) in itertools.product(tau_KCC2_E_list, tau_KCC2_I_list)
+                # }
+
                 sns.histplot(
-                    data=df.groupby([constants.TAU_KCC2_I, constants.TAU_KCC2_E]).mean(
-                        numeric_only=True
-                    ),
+                    data=mean,
                     y=constants.TAU_KCC2_I,
                     weights="Number of bursts",
                     stat="count",
                     hue=constants.TAU_KCC2_E,
                     hue_order=sorted(df[constants.TAU_KCC2_E].unique()),
                     palette=settings.COLOR.TAU_PAL,
+                    # hue="Tau (PC, IN)",
+                    # palette=cmap_tau_e_i_str,
                     multiple="layer",
                     element="step",
                     bins=bins,
@@ -1130,7 +1149,22 @@ class Tau(MultiRunFigure):
                     linewidth=0.5,
                     legend=g == 0,
                 )
+                # add errbars
+                y = mean[constants.TAU_KCC2_I]
+                # move y to center of bin
 
+                move_value_by_bin_diff = dict(zip(bins, np.diff(bins) / 2))
+                y = y.apply(lambda x: x + move_value_by_bin_diff[x])
+
+                if hist_err_bars:
+                    ax_tau_in.errorbar(
+                        x=mean["Number of bursts"],
+                        y=y,
+                        xerr=sem["Number of bursts"],
+                        fmt="none",
+                        ecolor="black",
+                        elinewidth=0.5,
+                    )
                 ############################
                 # FORMATTING
                 ############################
@@ -1246,7 +1280,7 @@ class Tau(MultiRunFigure):
                         handlelength=0,
                         columnspacing=0.2,
                         labelspacing=0,
-                        labelcolor=sns.color_palette("RdPu_r", len(tau_i)),
+                        labelcolor="linecolor",
                         fontsize="x-small",
                         title=f"{constants.TAU_KCC2_I} (s)",
                         title_fontsize="small",
@@ -1346,6 +1380,9 @@ class Tau(MultiRunFigure):
             labelspacing=0,
             labelcolor="linecolor",
         )
+
+        if timeit:
+            logger.info(f"plotting took {time.time() - plot_time_start:.2f}s")
 
     def plot_g_gaba(self, ax_bursts, df_long, gs_bursts, rotation=0):
         fig_bursts = self.fig

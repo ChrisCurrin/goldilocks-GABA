@@ -480,7 +480,9 @@ class Gve(MultiRunFigure):
             mesh_cmap = settings.COLOR.EGABA_SM.cmap
             mesh_cmap = ListedColormap(
                 sns.light_palette(
-                    settings.COLOR.EGABA, self.num_ecl_steps * 2, reverse=True
+                    settings.COLOR.EGABA,
+                    self.num_ecl_steps * 2,
+                    reverse=settings.COLOR.EGABA_reverse,
                 )
             )
         else:
@@ -615,10 +617,9 @@ class Gve(MultiRunFigure):
                 size=self.num_bursts_col,
                 size_norm=size_norm,
                 sizes=sizes,
-                # palette=cmap,
-                palette="rocket",
+                palette=settings.COLOR.NUM_BURSTS_PALETTE,
                 #  alpha=0.8,
-                # set style sothat legend has the right marker
+                # set style so that legend has the right marker
                 style=self.num_bursts_col,
                 markers="o",
                 data=data,
@@ -973,19 +974,19 @@ class Gve(MultiRunFigure):
         )
         wide_df.index = wide_df.index.astype(int)
         wide_df.columns = wide_df.columns.astype(int)
-        # sns.lineplot(
-        #     x=constants.G_GABA,
-        #     y=self.num_bursts_col,
-        #     hue=constants.EGABA,
-        #     hue_order=egabas,
-        #     hue_norm=norm,
-        #     palette=cmap,
-        #     data=wide_df.reset_index()
-        #     .melt(id_vars=constants.G_GABA, value_name=self.num_bursts_col)
-        #     .query(f"{constants.EGABA} in {egabas.tolist()}"),
-        #     ax=ax,
-        #     legend=False,
-        # )
+        sns.lineplot(
+            x=constants.G_GABA,
+            y=self.num_bursts_col,
+            hue=constants.EGABA,
+            hue_order=egabas,
+            hue_norm=norm,
+            palette=cmap,
+            data=wide_df.reset_index()
+            .melt(id_vars=constants.G_GABA, value_name=self.num_bursts_col)
+            .query(f"{constants.EGABA} in {egabas.tolist()}"),
+            ax=ax,
+            legend=False,
+        )
         # plot again for error bars (previous plot omits error bars but includes 0 values)
         sns.lineplot(
             x=constants.G_GABA,

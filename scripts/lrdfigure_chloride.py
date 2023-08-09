@@ -544,6 +544,10 @@ class Chloride(MultiRunFigure):
                 [f"{t}" for t in np.arange(0, T + bin_size, bin_size, dtype=int)]
             )
 
+        # set axes lines to be highest layer
+        for ax_i in flatten(axs):
+            ax_i.set_axisbelow(False)
+
         fig.align_labels(axs=list(flatten(axs)))
 
         plot_time = time.time()

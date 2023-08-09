@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from brian2 import second
-from matplotlib import patheffects
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 from matplotlib.patches import Rectangle
+from tqdm import tqdm
 
 import settings
 from core.analysis import burst_stats, get_duration_interval, inst_burst_rate
@@ -35,10 +35,18 @@ class Drugs(MultiRunFigure):
         self,
         benzo_strengths=(0, 0.25, 0.5, 1, 2, 4, 8),
         E_Cl_0s=(-88, -60),
+        egabas=None,
         duration=600,
         **kwargs,
     ):
         self.benzo_strengths: Iterable[float] = benzo_strengths
+        if egabas is not None:
+            logger.info("using egabas argument instead of E_Cl_0s")
+            ehco3 = -18
+            phco3 = 0.2
+            pcl = 1 - phco3
+            E_Cl_0s = [round((e - phco3 * ehco3) / pcl, 2) for e in egabas]
+
         self.E_Cl_0s = E_Cl_0s
         self.duration = duration
         super().__init__(
@@ -162,7 +170,10 @@ class Drugs(MultiRunFigure):
                     sub_gs_var[bs][ecl] = gs_traces
         else:
             gs_explan = GridSpecFromSubplotSpec(
-                len(drugs_to_plot), len(self.E_Cl_0s), subplot_spec=gs[0, :], hspace=0.15
+                len(drugs_to_plot),
+                len(self.E_Cl_0s),
+                subplot_spec=gs[0, :],
+                hspace=0.15,
             )
 
             for i, bs in enumerate(drugs_to_plot):
@@ -183,7 +194,9 @@ class Drugs(MultiRunFigure):
         rates_all: pd.DataFrame = self.df.xs("r_all", axis=1, level="var")
         _ax_vars = {}
         _ax_stats = {}
+        pbar = tqdm(total=len(self.E_Cl_0s) * len(drugs), leave=False)
         for e, ecl in enumerate(self.E_Cl_0s):
+            pbar.set_description(f"ecl = {ecl}")
             burst_colors = []
             # trace examples for more conditions
             gs_traces = GridSpecFromSubplotSpec(
@@ -208,7 +221,7 @@ class Drugs(MultiRunFigure):
             max_rates_e = np.max(rates_all.xs(ecl, axis=1, level="E_Cl_0").values)
             num_d = {}
             for d, drug in enumerate(drugs):
-                logger.info(f"drug = {drug} \t ecl = {ecl}")
+                pbar.set_description(f"ecl = {ecl} | drug = {drug}")
                 rates: pd.Series = rates_all[drug, ecl]
                 if isinstance(rates, pd.DataFrame):
                     # rates is DataFrame if there're duplicate keys *at all* in the drugs column
@@ -241,7 +254,9 @@ class Drugs(MultiRunFigure):
                 self.calc_stats_with_trace(
                     _ax_trace, benzo_off_t, benzo_onset_t, drug, ecl, rates, stats_data
                 )
+                pbar.update()
 
+            pbar.set_description(f"ecl = {ecl} | stats")
             # restrict view to only when drug is active
             _ax_trace.set_xlim(benzo_onset_t, T)
             # _ax_trace.set_ylim(0, _ax_trace.get_ylim()[1]*1.1)
@@ -277,6 +292,7 @@ class Drugs(MultiRunFigure):
             else:
                 fig.align_ylabels(ax_stats)
 
+        pbar.set_description("formatting")
         for key, _ax in _ax_vars.items():
             # sharing of y-axis determines shape of 'key'
             _var, ecl = key if type(key) is tuple else (key, None)
@@ -300,6 +316,7 @@ class Drugs(MultiRunFigure):
                 bbox_to_anchor=(0, 0.5),
                 textprops={"fontsize": "small"},
             )
+        pbar.close()
         plot_time = time.time()
         plot_dt = plot_time - plot_time_start
         if timeit:
@@ -623,14 +640,13 @@ class Drugs(MultiRunFigure):
 
 
 if __name__ == "__main__":
-    ehco3 = -18
-    phco3 = 0.2
-    pcl = 1 - phco3
-    mv_step = 2
     time_per_value = 60
     egabas = [-74, -60, -46]
-    E_Cl_0s = [round((e - phco3 * ehco3) / pcl, 2) for e in egabas]
-    drugs = Drugs(benzo_strengths=(0, 0.25, 0.5, 1, 2, 4, 8), E_Cl_0s=E_Cl_0s)
+    drugs = Drugs(
+        benzo_strengths=(0, 0.25, 0.5, 1, 2, 4, 8),
+        egabas=[-74, -60, -46],
+        seeds=(12978,),
+    )
     drugs.run()
     drugs.plot(drugs_to_plot=[0.25, 4])
     drugs.save_figure(use_args=False, close=False)

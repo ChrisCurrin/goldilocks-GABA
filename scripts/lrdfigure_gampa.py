@@ -414,7 +414,7 @@ if __name__ == "__main__":
             None,
             1013,
             12987,
-            #    1234, 1837
+               1234, 1837
         ),
         __device_directory=f".cpp_{Params.fig_name}",
     )

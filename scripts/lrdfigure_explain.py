@@ -1,4 +1,6 @@
 import time
+from typing import Iterable
+from matplotlib import patheffects
 
 import numpy as np
 import pandas as pd
@@ -30,12 +32,79 @@ logger = logging.getLogger(__name__)
 
 
 class Explain(LRDFigure):
+    """
+    A class for generating and plotting LRDFigure 1, which shows the effect of varying the reversal potential of GABAergic
+    synapses on network activity.
+
+    Inherits from LRDFigure.
+
+    Parameters
+    ----------
+    mv_step : int, optional
+        Step in mV for the range of egaba values. Default is 2.
+    time_per_value : int, optional
+        Time in seconds for each egaba value. Default is 60.
+    egaba : tuple of int, optional
+        Range of egaba values (inclusive, exclusive). Default is (-78, -34).
+    cache : bool, optional
+        Whether to cache the simulation results. Default is False.
+
+    Methods
+    -------
+    run(mv_step=2, time_per_value=60, egaba=(-78, -34), cache=False, **kwargs)
+        Runs the simulation for the given parameters and returns the results.
+    plot(timeit=True, plot_igaba=False, plot_rates=('r_all', 'r_I', 'r_E'), **kwargs)
+        Plots the simulation results.
+
+    """
     fig_name = "figure_1_explain"
 
-    def run(self, cache=False, **kwargs):  # still not plotting 100% when using cache
-        return super().run(cache=cache, **kwargs)
+    def run(
+        self,
+        mv_step=2,
+        time_per_value=60,
+        egaba: Iterable = (-78, -34),
+        cache=False,  # still not plotting 100% when using cache
+        **kwargs,
+    ):
+        """
+        :param mv_step: step in mV
+        :param time_per_value: time in seconds
+        :param egaba: range of egaba values [inclusive, exclusive)
+            useful to have the difference between the two values to be a multiple of the mv_step
 
-    def plot(self, timeit=True, plot_igaba=False, **kwargs):
+        """
+        assert egaba[0] < egaba[1], "egaba[0] must be smaller than egaba[1]"
+        assert len(egaba) == 2, "egaba must be a list of two values"
+
+        diff = egaba[1] - egaba[0]
+        values = diff // mv_step
+        steps = values - 1
+        duration = values * time_per_value
+
+        ehco3 = -18
+        phco3 = 0.2
+        pcl = 1 - phco3
+        ecl = [round((e - phco3 * ehco3) / pcl, 2) for e in egaba]
+
+        logger.info(f"EGABA range = {np.linspace(egaba[0], egaba[1], steps+2)[:-1]}")
+
+        return super().run(
+            duration=duration,
+            num_ecl_steps=steps,
+            E_Cl_0=ecl[0],
+            E_Cl_end=ecl[-1],
+            cache=cache,
+            **kwargs,
+        )
+
+    def plot(
+        self,
+        timeit=True,
+        plot_igaba=False,
+        plot_rates=("r_all", "r_I", "r_E"),
+        **kwargs,
+    ):
         super().plot(**kwargs)
         logger.info(f"plotting {self.fig_name}")
         plot_time_start = time.time()
@@ -140,9 +209,8 @@ class Explain(LRDFigure):
         num_xticks = 5
         xpad = 0.2
 
-        plot_population_rates(
-            [self.r_I, self.r_E], ax=ax_pop, time_unit=time_unit, lw=0.1
-        )
+        to_plot = [getattr(self, rate) for rate in plot_rates]
+        plot_population_rates(to_plot, ax=ax_pop, time_unit=time_unit, lw=0.1)
 
         burst_start_ts, burst_end_ts = burst_stats(
             self.r_all, time_unit=time_unit, plot_fig=False
@@ -392,16 +460,23 @@ class Explain(LRDFigure):
         e_ticks = (t_steps + t_steps_off)[:-1]  # don't need last tick
         e_ticklabels = np.linspace(min_egaba / mV, max_egaba / mV, num_ecl_vals)
 
+        if np.all(e_ticklabels == np.round(e_ticklabels).astype(int)):
+            e_ticklabels = e_ticklabels.astype(int)
+        else:
+            e_ticklabels = np.round(e_ticklabels, 2)
+
         for i, (x, e) in enumerate(zip(e_ticks, e_ticklabels)):
             ax_egaba.annotate(
-                f"{e:.2f}",
+                f"{e}",
                 xy=(x, 0.5),
                 fontsize="x-small",
                 ha="center",
                 va="center",
-                rotation=90,
+                rotation=0,
                 c="w",
-                # path_effects=[patheffects.withStroke(linewidth=0.1, foreground='black')]
+                # path_effects=[
+                #     patheffects.withStroke(linewidth=0.1, foreground="black")
+                # ],
             )
         ax_egaba.set_ylabel(f"{constants.EGABA}\n(mV)")
         ax_egaba.tick_params(
@@ -444,25 +519,13 @@ if __name__ == "__main__":
 
     np.random.seed(1337)
     explain = Explain()
-    ehco3 = -18
-    phco3 = 0.2
-    pcl = 1 - phco3
-    mv_step = 2
-    time_per_value = 60
-    egaba = [-74, -40]
-    diff = egaba[1] - egaba[0]
-    values = diff // mv_step
-    steps = values - 1
-    duration = values * time_per_value
-    ecl = [round((e - phco3 * ehco3) / pcl, 2) for e in egaba]
-    # [-74, -40] -> 34 dif /2 -> 17 steps -> 60 s per value -> 1020 s
 
     explain.run(
-        duration=duration,
-        num_ecl_steps=steps,
-        E_Cl_0=ecl[0],
-        E_Cl_end=ecl[-1],
+        mv_step=2,
+        time_per_value=60,
+        egaba=[-78, -34],
     )
+
     explain.plot()
     explain.save_figure()
     plt.show()
