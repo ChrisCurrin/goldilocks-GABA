@@ -14,6 +14,10 @@ logger = logging.getLogger("analysis")
 np.seterr(all="ignore")
 
 
+def ecl_to_egaba(ecl, ehco3=-18, pcl=0.8):
+    return pcl * ecl + (1 - pcl) * ehco3
+
+
 def spikes_to_rate(spk_mon, time_unit=ms, bin_width=10 * ms):
     """
     Convert spikes from a SpikeMonitor to a rate (in pandas Series)

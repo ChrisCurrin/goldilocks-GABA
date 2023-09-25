@@ -13,7 +13,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import settings
 from core.analysis import burst_stats, get_burst_periods
 from core.lrdfigure import LRDFigure
-from settings import constants, logging, time_unit
+from settings import text, logging, time_unit
 from style.axes import adjust_spines, letter_axes
 from style.plot_trace import (
     add_mg_ax,
@@ -478,7 +478,7 @@ class Explain(LRDFigure):
                 #     patheffects.withStroke(linewidth=0.1, foreground="black")
                 # ],
             )
-        ax_egaba.set_ylabel(f"{constants.EGABA}\n(mV)")
+        ax_egaba.set_ylabel(f"{text.EGABA}\n(mV)")
         ax_egaba.tick_params(
             axis="x", which="minor", top=False, bottom=False, labeltop=True
         )
@@ -505,7 +505,7 @@ class Explain(LRDFigure):
 
         for ax_i in ax[:-1, 0]:
             ax_i.xaxis.label.set_visible(False)
-        ax[-1, 0].set_xlabel(f"{constants.TIME}" + " (%s)" % time_unit)
+        ax[-1, 0].set_xlabel(f"{text.TIME}" + " (%s)" % time_unit)
         fig.align_ylabels(list(flatten(ax)))
         plot_time = time.time()
         plot_dt = plot_time - plot_time_start

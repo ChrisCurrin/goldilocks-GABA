@@ -14,7 +14,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from tqdm import tqdm
 
 import settings
-from settings import COLOR, constants
+from settings import COLOR, text
 from style.axes import adjust_spines, colorbar_inset, create_zoom
 
 logger = logging.getLogger("brian2viz")
@@ -159,8 +159,8 @@ def plot_population_rates(
             )
         _rate = rate_mon.smooth_rate(**smooth_rate_args) if smooth else rate_mon.rate
 
-        if rate_mon.name in constants.POPULATION_RATE_MAP:
-            label = constants.POPULATION_RATE_MAP[rate_mon.name]
+        if rate_mon.name in text.POPULATION_RATE_MAP:
+            label = text.POPULATION_RATE_MAP[rate_mon.name]
         else:
             label = rate_mon.name
         plot_rate(
@@ -626,7 +626,7 @@ def plot_synaptic_variables(
                 _full_calc,
                 linestyle="-",
                 color=COLOR.CONN_dict[s_name],
-                label=constants.CONNECTION_MAP[s_name],
+                label=text.CONNECTION_MAP[s_name],
                 rasterized=settings.RASTERIZED,
                 **kwargs,
             )
@@ -671,23 +671,23 @@ def plot_synaptic_variables(
             )
     if ax_x and ax_u:
         xs_label = (
-            constants.VESICLES_LONG.replace("\n", "(%)\n")
+            text.VESICLES_LONG.replace("\n", "(%)\n")
             if perc
-            else constants.VESICLES_LONG
+            else text.VESICLES_LONG
         )
         us_label = (
-            constants.EFFICACY_LONG.replace("\n", "(%)\n")
+            text.EFFICACY_LONG.replace("\n", "(%)\n")
             if perc
-            else constants.EFFICACY_LONG
+            else text.EFFICACY_LONG
         )
     else:
-        xs_label = constants.VESICLES_TEXT
-        us_label = constants.EFFICACY_TEXT
+        xs_label = text.VESICLES_TEXT
+        us_label = text.EFFICACY_TEXT
         if perc:
             xs_label += " (%)"
             us_label += " (%)"
     w_label = (
-        constants.WEIGHT_LONG.replace("\n", "(%)\n") if perc else constants.WEIGHT_LONG
+        text.WEIGHT_LONG.replace("\n", "(%)\n") if perc else text.WEIGHT_LONG
     )
     if ax_x != ax_u:
         if ax_x is not None:

@@ -12,7 +12,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import settings
-from settings import COLOR, constants
+from settings import COLOR, text
 from style.axes import adjust_spines, align_axes
 from style.plot_trace import (
     plot_raster_two_pop,
@@ -186,12 +186,12 @@ def simple_activity_plot(r_all, r_E, r_I, state_mon, time_unit=ms, ax=None, fig=
         egaba_ax,
         idx=0,
         time_unit=time_unit,
-        label_text=f"depolarising {constants.EGABA}",
+        label_text=f"depolarising {text.EGABA}",
         label_coord=state_mon.t[-1] * 3 / 4 / time_unit,
         cmap=cmap,
     )
     egaba_ax.annotate(
-        f"hyperpolarising {constants.EGABA}",
+        f"hyperpolarising {text.EGABA}",
         xy=(state_mon.t[-1] / 4 / time_unit, 0),
         fontsize="x-small",
         ha="center",
@@ -271,8 +271,8 @@ def plot_hierarchy(
 
     var_attrs = {
         "v": {"name": "V", "color": COLOR.K, "lw": 0.1},
-        "E_Cl": {"name": constants.ECL, "color": COLOR.G, "lw": 0.5},
-        "E_GABA": {"name": constants.EGABA, "color": COLOR.R1_B3, "lw": 1.5},
+        "E_Cl": {"name": text.ECL, "color": COLOR.G, "lw": 0.5},
+        "E_GABA": {"name": text.EGABA, "color": COLOR.R1_B3, "lw": 1.5},
     }
 
     #
@@ -428,8 +428,8 @@ def plot_states(
 
     var_attrs = {
         "v": {"name": "V", "color": COLOR.K, "lw": 0.5},
-        "E_Cl": {"name": constants.ECL, "color": COLOR.G, "lw": 0.5},
-        "E_GABA": {"name": constants.EGABA, "color": COLOR.R1_B3, "lw": 1.5},
+        "E_Cl": {"name": text.ECL, "color": COLOR.G, "lw": 0.5},
+        "E_GABA": {"name": text.EGABA, "color": COLOR.R1_B3, "lw": 1.5},
     }
 
     # #

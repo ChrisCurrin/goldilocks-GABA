@@ -20,8 +20,9 @@ from tqdm import tqdm
 import settings
 from core.analysis import burst_stats, inst_burst_rate, spikes_to_rate
 from core.lrdfigure import MultiRunFigure
-from settings import constants, logging, time_unit
-from style.axes import adjust_spines, colorbar_inset, use_scalebar
+from settings import text, logging, time_unit
+from style.axes import adjust_spines, colorbar_inset, letter_axes, use_scalebar
+from style.color import COLOR, categorical_cmap, lighten_color, opacity
 from style.figure import new_gridspec
 
 logger = logging.getLogger(__name__)
@@ -46,9 +47,9 @@ class Tau(MultiRunFigure):
     ):
         super().__init__(
             OrderedDict(
-                g_GABA_max={"range": g_GABA_list, "title": constants.G_GABA},
-                tau_KCC2_E={"range": tau_KCC2_E_list, "title": constants.TAU_KCC2_E},
-                tau_KCC2_I={"range": tau_KCC2_I_list, "title": constants.TAU_KCC2_I},
+                g_GABA_max={"range": g_GABA_list, "title": text.G_GABA},
+                tau_KCC2_E={"range": tau_KCC2_E_list, "title": text.TAU_KCC2_E},
+                tau_KCC2_I={"range": tau_KCC2_I_list, "title": text.TAU_KCC2_I},
             ),
             default_params=dict(E_Cl_0=-60, dyn_cl=True),
             **kwargs,
@@ -62,7 +63,7 @@ class Tau(MultiRunFigure):
         self.tau_KCC2_list_columns = [f"{_t[0]}, {_t[1]}" for _t in self.tau_KCC2_list]
         self.g_GABA_list = g_GABA_list
         # self.iterables = [self.g_GABA_list, self.tau_KCC2_list_columns]
-        # self.var_names = [constants.G_GABA, f'{constants.TAU_KCC2} (s) [PC, IN
+        # self.var_names = [text.G_GABA, f'{text.TAU_KCC2} (s) [PC, IN
 
         self.df_long: Optional[pd.DataFrame] = None
         self.df_bursts_bins: Optional[pd.DataFrame] = None
@@ -102,12 +103,24 @@ class Tau(MultiRunFigure):
 
         return self
 
-    def process_data(self, burst_window=100 * second, **kwargs):
-        if self.df_long is not None and self._burst_window_used == burst_window:
-            return (self.df_long, self.df_bursts_bins, self.df_taus, self.df_num_bursts)
+    def process(self, burst_window=60 * second, **kwargs):
         logger.info("Processing data")
+        # check burst_window is a quantity
+        if not isinstance(burst_window, Quantity):
+            burst_window = burst_window * time_unit
+
         self._burst_window_used = burst_window
-        df_long = pd.DataFrame(
+        bin_size = burst_window / second
+        T = np.round(self.df.index.values[-1])
+        bins = np.arange(0, T + bin_size, bin_size)
+        bins_range = [
+            f"{i*burst_window/time_unit:.0f}-{(i + 1)*burst_window/time_unit:.0f}"
+            for i in range(round(T * time_unit / burst_window))
+        ]
+        self.num_bursts_col = (
+            num_bursts_col
+        ) = f"Number of bursts\n(per {bin_size:.0f} s)"
+        df_bursts_long = pd.DataFrame(
             columns=[
                 "run_idx",
                 "g_GABA",
@@ -127,25 +140,19 @@ class Tau(MultiRunFigure):
             df_r_all: pd.DataFrame = self.df[g_GABA].xs("r_all", axis=1, level="var")
             r_max = np.nanmax(df_r_all.values)
             # create bins
-            bins = [
-                f"{i*burst_window/time_unit:.0f}-{(i + 1)*burst_window/time_unit:.0f}"
-                for i in range(round(df_r_all.index[-1] * time_unit / burst_window))
-            ]
 
             # Data containers
             #   2D Dataframe with time bins as index and (tau_E, tau_I) pairs as columns
             df_bursts_bins = pd.DataFrame(
-                columns=self.tau_KCC2_list_columns, index=bins
+                columns=self.tau_KCC2_list_columns, index=bins_range
             )
             #   3D Dataframe with tau_I as index and (tau_E -> run_idx) as hierarchical columns
             df_taus = pd.DataFrame(
                 columns=pd.MultiIndex.from_product(
                     [self.tau_KCC2_E_list, run_idxs],
-                    names=[f"{constants.TAU_KCC2_E} (s)", "run index"],
+                    names=[f"{text.TAU_KCC2_E} (s)", "run index"],
                 ),
-                index=pd.Index(
-                    self.tau_KCC2_I_list, name=f"{constants.TAU_KCC2_I} (s)"
-                ),
+                index=pd.Index(self.tau_KCC2_I_list, name=f"{text.TAU_KCC2_I} (s)"),
             )
 
             for label, series in df_r_all.items():
@@ -172,7 +179,7 @@ class Tau(MultiRunFigure):
                 df_bursts_bins[taus] = n_bursts
                 df_taus.loc[tau_i, (tau_e, run_idx)] = np.sum(n_bursts)
                 for start_t, end_t in zip(start_ts, end_ts):
-                    df_long.loc[df_long.shape[0]] = [
+                    df_bursts_long.loc[df_bursts_long.shape[0]] = [
                         run_idx,
                         g_GABA,
                         tau_e,
@@ -181,7 +188,7 @@ class Tau(MultiRunFigure):
                         end_t,
                     ]
                 if len(start_ts) == 0:
-                    df_long.loc[df_long.shape[0]] = [
+                    df_bursts_long.loc[df_bursts_long.shape[0]] = [
                         run_idx,
                         g_GABA,
                         tau_e,
@@ -189,23 +196,30 @@ class Tau(MultiRunFigure):
                         np.nan,
                         np.nan,
                     ]
+
+        df_bursts_long["bin"] = pd.cut(
+            df_bursts_long["Burst start time (s)"],
+            bins=np.append(bins, bins[-1] + bin_size),
+            labels=bins.astype(int),
+        )
         df_num_bursts = (
-            df_long.groupby(
-                ["g_GABA", "KCC2 E", "KCC2 I", "run_idx"],
+            df_bursts_long.groupby(
+                ["g_GABA", "KCC2 E", "KCC2 I", "bin", "run_idx"],
                 as_index=False,
             )
             .count()
-            .rename(columns={"Burst start time (s)": "Number of bursts"})
+            .rename(columns={"Burst start time (s)": num_bursts_col})
+            .fillna(0)
         )
-        df_num_bursts[constants.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
-        df_num_bursts[constants.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
+        df_num_bursts[text.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
+        df_num_bursts[text.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
 
-        self.df_long = df_long
+        self.df_long = df_bursts_long
         self.df_bursts_bins = df_bursts_bins
         self.df_taus = df_taus
         self.df_num_bursts = df_num_bursts
         logger.info("Processed data")
-        return (df_long, df_bursts_bins, df_taus, df_num_bursts)
+        return self
 
     def plot_old(
         self,
@@ -244,15 +258,15 @@ class Tau(MultiRunFigure):
         plot_taus = sorted(set(plot_taus))
 
         # create a categorical colormap with 3x3 colors.
-        cmap = settings.categorical_cmap(3, 4, "Dark2").colors
+        cmap = categorical_cmap(3, 4, "Dark2").colors
         cmap = np.delete(
             cmap, [2, 3, 7, 8, 11], axis=0
         )  # delete lightest row and gaps from plot_taus
         for i in range(len(cmap)):
-            cmap[i] = settings.lighten_color(cmap[i], 1.2)
+            cmap[i] = lighten_color(cmap[i], 1.2)
 
         cmap_tau_e_i = {
-            (tau_e, tau_i): settings.lighten_color(
+            (tau_e, tau_i): lighten_color(
                 settings.COLOR.TAU_PAL_DICT[tau_e],
                 1.2 if tau_i > tau_e else 0.8 if tau_i < tau_e else 1,
             )
@@ -322,9 +336,9 @@ class Tau(MultiRunFigure):
             df_taus = pd.DataFrame(
                 columns=pd.MultiIndex.from_product(
                     [tau_KCC2_E_list, run_idxs],
-                    names=[f"{constants.TAU_KCC2_E} (s)", "run index"],
+                    names=[f"{text.TAU_KCC2_E} (s)", "run index"],
                 ),
-                index=pd.Index(tau_KCC2_I_list, name=f"{constants.TAU_KCC2_I} (s)"),
+                index=pd.Index(tau_KCC2_I_list, name=f"{text.TAU_KCC2_I} (s)"),
             )
             # ticks based on time bins
             ticks = np.linspace(
@@ -416,7 +430,7 @@ class Tau(MultiRunFigure):
                     if tau_idx == 0:
                         # title
                         _ax.annotate(
-                            f"{constants.TAU_KCC2}\nPC, IN",
+                            f"{text.TAU_KCC2}\nPC, IN",
                             xy=(-0.15, 1),
                             xycoords="axes fraction",
                             fontsize="x-small",
@@ -424,7 +438,7 @@ class Tau(MultiRunFigure):
                             va="bottom",
                         )
                         _ax.set_title(
-                            f"{constants.G_GABA} = {g_GABA} nS",
+                            f"{text.G_GABA} = {g_GABA} nS",
                             fontsize="small",
                             color=settings.COLOR.G_GABA_SM.to_rgba(g_GABA),
                         )
@@ -477,7 +491,7 @@ class Tau(MultiRunFigure):
                     #                  color=sm.to_rgba(n))
                     #     t0 = t
 
-                    # _ax.annotate(f"{constants.TAU_KCC2}(PC) = {tau_e} s\n{constants.TAU_KCC2}(IN) = {tau_i} s",
+                    # _ax.annotate(f"{text.TAU_KCC2}(PC) = {tau_e} s\n{text.TAU_KCC2}(IN) = {tau_i} s",
                     #              xy=(0, 1), xycoords="axes fraction", ha="left", va="bottom")
 
             self.fig.align_ylabels(_ax_list)
@@ -547,7 +561,7 @@ class Tau(MultiRunFigure):
                     0, max(df_taus_mean.values.max(), ax_bursts.get_ylim()[1])
                 )
                 ax_bursts.set_title(
-                    f"{constants.G_GABA} = {g_GABA} nS",
+                    f"{text.G_GABA} = {g_GABA} nS",
                     fontsize="small",
                     color=settings.COLOR.G_GABA_SM.to_rgba(g_GABA),
                     va="top",
@@ -563,13 +577,9 @@ class Tau(MultiRunFigure):
                     .count()
                     .rename(columns={"Burst start time (s)": "Number of bursts"})
                 )
-                df_num_bursts[constants.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(
-                    int
-                )
-                df_num_bursts[constants.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(
-                    int
-                )
-                # sns.barplot(y='Number of bursts', x=constants.TAU_KCC2_E, hue=constants.TAU_KCC2_I,
+                df_num_bursts[text.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
+                df_num_bursts[text.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
+                # sns.barplot(y='Number of bursts', x=text.TAU_KCC2_E, hue=text.TAU_KCC2_I,
                 #              hue_order=tau_KCC2_I_list,
                 #              errwidth=1, capsize=0.1,
                 #              data=df_num_bursts, ax=ax_bursts, **burst_plot_kwargs)
@@ -607,7 +617,7 @@ class Tau(MultiRunFigure):
                 # ax_bursts_norm.set_xlim(0)
 
                 ax_bursts_norm.set_title(
-                    f"{constants.G_GABA} = {g_GABA} nS",
+                    f"{text.G_GABA} = {g_GABA} nS",
                     fontsize="small",
                     color=settings.COLOR.G_GABA_SM.to_rgba(g_GABA),
                     va="top",
@@ -639,12 +649,12 @@ class Tau(MultiRunFigure):
                         alignment="left",
                     )
                     ax_bursts.legend(
-                        title=f"{constants.TAU_KCC2_I} (s)",
+                        title=f"{text.TAU_KCC2_I} (s)",
                         labelspacing=0.1,
                         **leg_kwargs,
                     )
                     ax_bursts_norm.legend(
-                        title=f"{constants.TAU_KCC2_E} (s)",
+                        title=f"{text.TAU_KCC2_E} (s)",
                         labelspacing=0,
                         handlelength=1,
                         handleheight=1,
@@ -742,9 +752,394 @@ class Tau(MultiRunFigure):
     def plot(
         self,
         timeit=True,
+        burst_window=120 * second,
+        default_tau_i=60,
+        default_tau_e=60,
+        default_ggaba=50,
+        plot_ggaba=(25, 50, 100, 200),
+        with_corner_traces=False,
+        run_idx=0,
+        use_mean=True,
+        square_heatmap=False,
+        all_major_ticks=False,
+        **kwargs,
+    ):
+        super().plot(**kwargs)
+        logger.info("plotting")
+        start_time = time.time()
+
+        if self.df_num_bursts is None:
+            self.process(burst_window)
+        assert self.df_num_bursts is not None
+
+        tau_KCC2_E_list, tau_KCC2_I_list = self.tau_KCC2_E_list, self.tau_KCC2_I_list
+        df_num_bursts = self.df_num_bursts
+        TAU_I_S = f"{text.TAU_KCC2_I} (s)"
+        TAU_E_S = f"{text.TAU_KCC2_E} (s)"
+        G_GABA = f"{text.G_GABA} (nS)"
+        df_num_bursts[TAU_I_S] = df_num_bursts["KCC2 I"].astype(int)
+        df_num_bursts[TAU_E_S] = df_num_bursts["KCC2 E"].astype(int)
+        df_num_bursts[G_GABA] = df_num_bursts["g_GABA"].astype(int)
+
+        ##############################
+        # SETUP FIGURE
+        # row 1: traces
+        # row 2: num bursts for a chosen tau
+        # row 3: heatmap of num bursts vs KCC2_E and KCC2_I
+        # row 4: num bursts vs g_GABA (for PC and IN)
+        ##############################
+        fig, axes = plt.subplot_mosaic(
+            [
+                ["trace_ax", "trace_ax"],
+                ["pc", "in"],
+                ["heatmap", "heatmap"],
+                ["pc - ggaba", "in - ggaba"],
+            ],
+            figsize=(settings.PAGE_W_half, settings.PAGE_H_FULL),
+            gridspec_kw=dict(
+                height_ratios=[0.3, 0.7, 1, 1.3],
+                width_ratios=[1, 1],
+                hspace=0.7,
+                wspace=0.5,
+                top=0.99,
+            ),
+        )
+        self.fig, self.axs = fig, axes
+        letter_axes(
+            *axes.values(),
+            
+        )
+        ##############################
+        # TRACE AXES
+        #               |  prev tau i   |
+        # prev tau e    |   baseline    |  next tau e
+        #               |  next tau i   |
+        ##############################
+
+        next_tau_e = tau_KCC2_E_list[tau_KCC2_E_list.index(default_tau_e) + 1]
+        next_tau_i = tau_KCC2_I_list[tau_KCC2_I_list.index(default_tau_i) + 1]
+        prev_tau_e = tau_KCC2_E_list[tau_KCC2_E_list.index(default_tau_e) - 1]
+        prev_tau_i = tau_KCC2_I_list[tau_KCC2_I_list.index(default_tau_i) - 1]
+
+        gs_traces = GridSpecFromSubplotSpec(
+            3, 3, subplot_spec=axes["trace_ax"], wspace=0, hspace=0
+        )
+        # axes["trace_ax"].remove()
+        x_col = [prev_tau_e, default_tau_e, next_tau_e]
+        y_col = [prev_tau_i, default_tau_i, next_tau_i]
+        axes["trace_ax"].set(
+            xticks=np.arange(0.5, len(x_col), 1),
+            xticklabels=x_col,
+            xlim=(0, len(x_col)),
+            xlabel=text.TAU_KCC2_E + " (s)",
+            yticks=np.arange(0.5, len(y_col), 1),
+            yticklabels=y_col,
+            ylim=(0, len(y_col)),
+            ylabel=text.TAU_KCC2_I + " (s)",
+        )
+
+        sns.despine(ax=axes["trace_ax"], left=True, bottom=True)
+
+        df_r_all: pd.DataFrame = self.df[default_ggaba].xs("r_all", axis=1, level="var")
+        baseline_rate = df_r_all.loc[:, (default_tau_e, default_tau_i, run_idx)]
+        next_tau_e_rate = df_r_all.loc[:, (next_tau_e, default_tau_i, run_idx)]
+        next_tau_i_rate = df_r_all.loc[:, (default_tau_e, next_tau_i, run_idx)]
+        prev_tau_e_rate = df_r_all.loc[:, (prev_tau_e, default_tau_i, run_idx)]
+        prev_tau_i_rate = df_r_all.loc[:, (default_tau_e, prev_tau_i, run_idx)]
+        prev_tau_e_i_rate = df_r_all.loc[:, (prev_tau_e, prev_tau_i, run_idx)]
+        next_tau_e_i_rate = df_r_all.loc[:, (next_tau_e, next_tau_i, run_idx)]
+        next_tau_e_prev_tau_i = df_r_all.loc[:, (next_tau_e, prev_tau_i, run_idx)]
+        next_tau_i_prev_tau_e = df_r_all.loc[:, (prev_tau_e, next_tau_i, run_idx)]
+
+        line_kwargs = {"lw": 0.1, "color": COLOR.K}
+        edge_axs = [
+            (baseline_rate, (1, 1)),
+            (next_tau_e_rate, (1, 2)),
+            (next_tau_i_rate, (2, 1)),
+            (prev_tau_e_rate, (1, 0)),
+            (prev_tau_i_rate, (0, 1)),
+        ]
+        corner_axs = [
+            (next_tau_e_i_rate, (2, 2)),
+            (prev_tau_e_i_rate, (0, 0)),
+            (next_tau_e_prev_tau_i, (0, 2)),
+            (next_tau_i_prev_tau_e, (2, 0)),
+        ]
+        all_trace_axs = edge_axs + (corner_axs if with_corner_traces else [])
+        for trace, ax_idx in all_trace_axs:
+            ax = fig.add_subplot(gs_traces[ax_idx])
+            ax.plot(trace, **line_kwargs)
+            if ax_idx == (1, 0):
+                use_scalebar(
+                    ax,
+                    matchx=False,
+                    sizex=burst_window / second,
+                    fmt=":.0f",
+                    hidex=False,
+                    hidey=False,
+                    textprops=dict(fontsize="xx-small"),
+                    labely="Hz",
+                    labelx="s",
+                    y_rotation=0,
+                    loc="upper center",
+                    bbox_to_anchor=(0, -1),
+                )
+            # remove ax decorations
+            ax.tick_params(
+                axis="both",
+                which="both",
+                bottom=False,
+                left=False,
+            )
+            ax.set_xticks([])
+            ax.set_yticks([])
+            sns.despine(ax=ax, bottom=True, left=True)
+
+        ##############################
+        # TAU AXES
+        # num bursts for a chosen tau
+        ##############################
+        df_num_bursts_default_g_gaba = df_num_bursts[
+            (df_num_bursts[G_GABA] == default_ggaba)
+        ]
+        sns.barplot(
+            data=df_num_bursts_default_g_gaba,
+            x=TAU_E_S,
+            y=self.num_bursts_col,
+            hue=TAU_I_S,
+            hue_order=[default_tau_i],
+            # palette=[COLOR.TAU_SM.to_rgba(default_tau_i)],
+            palette=[COLOR.K],
+            ax=axes["pc"],
+            # zorder=5,  # only single bar (top)
+            errorbar="se",
+        )
+
+        sns.barplot(
+            data=df_num_bursts_default_g_gaba,
+            x=TAU_I_S,
+            y=self.num_bursts_col,
+            hue=TAU_E_S,
+            hue_order=[default_tau_e],
+            # palette=[COLOR.TAU_SM.to_rgba(default_tau_e)],
+            palette=[COLOR.K],
+            ax=axes["in"],
+            # zorder=5,
+            errorbar="se",
+        )
+
+        # add categorical axes
+        df_num_bursts_default_g_gaba[TAU_E_S] = pd.cut(
+            df_num_bursts_default_g_gaba[TAU_E_S],
+            bins=[0] + tau_KCC2_E_list,
+            labels=[f"{tau_e:.0f}" for tau_e in tau_KCC2_E_list],
+        )
+        df_num_bursts_default_g_gaba[TAU_I_S] = pd.cut(
+            df_num_bursts_default_g_gaba[TAU_I_S],
+            bins=[0] + tau_KCC2_I_list,
+            labels=[f"{tau_i:.0f}" for tau_i in tau_KCC2_I_list],
+        )
+        sns.lineplot(
+            data=df_num_bursts_default_g_gaba[
+                df_num_bursts_default_g_gaba[TAU_I_S] == str(default_tau_i)
+            ],
+            x=TAU_E_S,
+            y=self.num_bursts_col,
+            hue=G_GABA,
+            palette=COLOR.G_GABA_PAL_DICT,
+            ax=axes["pc"],
+            errorbar="se",
+            # markers="None",
+            # legend=False,
+        )
+        sns.lineplot(
+            data=df_num_bursts_default_g_gaba[
+                df_num_bursts_default_g_gaba[TAU_E_S] == str(default_tau_e)
+            ],
+            x=TAU_I_S,
+            y=self.num_bursts_col,
+            hue=G_GABA,
+            palette=COLOR.G_GABA_PAL_DICT,
+            ax=axes["in"],
+            errorbar="se",
+            # markers="None",
+        )
+
+        # remove legend
+        axes["pc"].get_legend().remove()
+        axes["in"].get_legend().remove()
+
+        if not all_major_ticks:
+            # make every second xaxis tick minor
+            axes["pc"].set_xticks(np.arange(0, len(tau_KCC2_E_list)), minor=True)
+            axes["pc"].set_xticks(
+                np.arange(0, len(tau_KCC2_E_list), 2), labels=tau_KCC2_E_list[::2]
+            )
+            axes["in"].set_xticks(np.arange(0, len(tau_KCC2_I_list)), minor=True)
+            axes["in"].set_xticks(
+                np.arange(0, len(tau_KCC2_I_list), 2), labels=tau_KCC2_I_list[::2]
+            )
+
+        # log scale (only if lineplot)
+        # axes["pc"].set_xscale("log")
+        # axes["in"].set_xscale("log")
+        # axes["pc"].set_xticks(tau_KCC2_E_list, labels=tau_KCC2_E_list)
+        # axes["in"].set_xticks(tau_KCC2_I_list, labels=tau_KCC2_I_list)
+
+        # share y axis
+        max_ylim = max(axes["pc"].get_ylim()[1], axes["in"].get_ylim()[1])
+        axes["pc"].set_ylim(0, max_ylim)
+        axes["in"].set_ylim(0, max_ylim)
+
+        ##############################
+        # HEATMAP AXES
+        # heatmap of num bursts vs KCC2_E and KCC2_I
+        ##############################
+
+        mean_num_bursts = (
+            df_num_bursts[df_num_bursts["g_GABA"] == default_ggaba]
+            .groupby(
+                [text.TAU_KCC2_E, text.TAU_KCC2_I],
+            )[self.num_bursts_col]
+            .agg(["count", "sum", "mean", "std"])
+            .reset_index()
+            .rename(
+                columns={
+                    "mean": self.num_bursts_col,
+                }
+            )
+        )
+
+        square_df = mean_num_bursts.pivot(
+            index=text.TAU_KCC2_I,
+            columns=text.TAU_KCC2_E,
+            values=self.num_bursts_col,
+        )[::-1]
+
+        hm_kwargs = dict(
+            ax=axes["heatmap"],
+            cbar_kws={"label": self.num_bursts_col},
+            cmap=COLOR.NUM_BURSTS_CMAP,
+            # mask=square_df == 0,
+            annot=False,
+            fmt=".1f",
+            annot_kws={"fontsize": 8},
+            vmin=0.0,
+            # vmax=vmax,
+            square=square_heatmap,
+        )
+
+        sns.heatmap(
+            square_df,
+            **hm_kwargs,
+        )
+        axes["heatmap"].set_facecolor(opacity(0.1, "#c7a1c8"))
+
+        ##############################
+        # G_GABA AXES
+        # num bursts vs g_GABA (for PC and IN)
+        ##############################
+
+        # PC
+        g_gaba_pal = {
+            g_gaba: COLOR.G_GABA_SM.to_rgba(g_gaba)
+            for g_gaba in df_num_bursts[G_GABA].unique()
+        }
+        renamed_col = f"{self.num_bursts_col}\n[mean of {text.TAU_KCC2_I}]"
+        data = (
+            df_num_bursts.groupby(
+                [G_GABA, TAU_E_S, "run_idx"],
+                as_index=False,
+            )
+            .mean(numeric_only=True)
+            .rename(columns={self.num_bursts_col: renamed_col})
+        )
+        sns.lineplot(
+            data=data if use_mean else df_num_bursts,
+            x=TAU_E_S,
+            y=renamed_col if use_mean else self.num_bursts_col,
+            hue=G_GABA,
+            hue_order=plot_ggaba,
+            palette=g_gaba_pal,
+            errorbar="se",
+            ax=axes["pc - ggaba"],
+        )
+
+        renamed_col = f"{self.num_bursts_col}\n[mean of {text.TAU_KCC2_E}]"
+        data = (
+            df_num_bursts.groupby(
+                [G_GABA, TAU_I_S, "run_idx"],
+                as_index=False,
+            )
+            .mean(numeric_only=True)
+            .rename(columns={self.num_bursts_col: renamed_col})
+        )
+
+        sns.lineplot(
+            data=data if use_mean else df_num_bursts,
+            x=TAU_I_S,
+            y=renamed_col if use_mean else self.num_bursts_col,
+            hue=G_GABA,
+            hue_order=plot_ggaba,
+            palette=g_gaba_pal,
+            errorbar="se",
+            ax=axes["in - ggaba"],
+        )
+
+        # log scale
+        axes["pc - ggaba"].set_xscale("log")
+        axes["in - ggaba"].set_xscale("log")
+
+        # remove minor ticks from log by default
+        axes["pc - ggaba"].set_xticks([], minor=True)
+        axes["in - ggaba"].set_xticks([], minor=True)
+
+        if all_major_ticks:
+            axes["pc - ggaba"].set_xticks(tau_KCC2_E_list, labels=tau_KCC2_E_list)
+            axes["in - ggaba"].set_xticks(tau_KCC2_I_list, labels=tau_KCC2_I_list)
+        else:
+            axes["pc - ggaba"].set_xticks(tau_KCC2_E_list, minor=True)
+            axes["pc - ggaba"].set_xticks(
+                tau_KCC2_E_list[::2], labels=tau_KCC2_E_list[::2]
+            )
+            axes["in - ggaba"].set_xticks(tau_KCC2_I_list, minor=True)
+            axes["in - ggaba"].set_xticks(
+                tau_KCC2_I_list[::2], labels=tau_KCC2_I_list[::2]
+            )
+
+        # share y axis
+        max_ylim = max(
+            axes["pc - ggaba"].get_ylim()[1], axes["in - ggaba"].get_ylim()[1]
+        )
+        axes["pc - ggaba"].set_ylim(0, max_ylim)
+        axes["in - ggaba"].set_ylim(0, max_ylim)
+
+        # remove legend from in
+        axes["in - ggaba"].get_legend().remove()
+
+        # pretty up legend for pc
+        leg = axes["pc - ggaba"].legend(
+            fontsize="small",
+            labelcolor="linecolor",
+            loc="upper left",
+            bbox_to_anchor=(0, 1.0),
+            frameon=False,
+            borderaxespad=0,
+            labelspacing=0,
+            handlelength=0,
+            alignment="right",
+        )
+        axes["pc - ggaba"].set_title(
+            f"{text.G_GABA} (nS)", fontsize="small", loc="left"
+        )
+
+        logger.info(f"plotting took {time.time() - start_time:.2f}")
+
+    def plot_supp(
+        self,
+        timeit=True,
         burst_window=100 * second,
         plot_ggaba=None,
-        df_num_bursts=None,
         hist_err_bars=False,
         **kwargs,
     ):
@@ -777,15 +1172,15 @@ class Tau(MultiRunFigure):
         plot_taus = sorted(set(plot_taus))
 
         # create a categorical colormap with 3x3 colors.
-        cmap = settings.categorical_cmap(3, 4, "Dark2").colors
+        cmap = categorical_cmap(3, 4, "Dark2").colors
         cmap = np.delete(
             cmap, [2, 3, 7, 8, 11], axis=0
         )  # delete lightest row and gaps from plot_taus
         for i in range(len(cmap)):
-            cmap[i] = settings.lighten_color(cmap[i], 1.2)
+            cmap[i] = lighten_color(cmap[i], 1.2)
 
         cmap_tau_e_i = {
-            (tau_e, tau_i): settings.lighten_color(
+            (tau_e, tau_i): lighten_color(
                 settings.COLOR.TAU_PAL_DICT[tau_e],
                 1.2 if tau_i > tau_e else 0.8 if tau_i < tau_e else 1,
             )
@@ -859,10 +1254,20 @@ class Tau(MultiRunFigure):
         ###############################
         # preprocess some useful vars
         ###############################
-        if df_num_bursts is None:
-            (df_long, df_bursts_bins, df_taus, df_num_bursts) = self.process_data(
-                burst_window=burst_window
+        if self.df_num_bursts is None:
+            self.process(burst_window=burst_window)
+        df_num_bursts = (
+            self.df_long.groupby(
+                ["g_GABA", "KCC2 E", "KCC2 I", "run_idx"],
+                as_index=False,
             )
+            .count()
+            .rename(columns={"Burst start time (s)": "Number of bursts"})
+            .fillna(0)
+        )
+        df_num_bursts[text.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
+        df_num_bursts[text.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
+
         vmax = kwargs.pop("vmax", df_num_bursts["Number of bursts"].max())
 
         # replace with a gridspec of len(plot_taus) rows. Filter out None values
@@ -916,7 +1321,7 @@ class Tau(MultiRunFigure):
                 _ax_list.append(_ax)
 
                 # use existing plot functionality in burst_stats
-                # (params should be same as in process_data)
+                # (params should be same as in process)
                 burst_stats(
                     series,
                     rate_std_thresh=2.0,
@@ -931,7 +1336,7 @@ class Tau(MultiRunFigure):
                     if g == 0:
                         # ylabel title
                         _ax.annotate(
-                            f"{constants.TAU_KCC2}\nPC, IN",
+                            f"{text.TAU_KCC2}\nPC, IN",
                             xy=(-0.15, 1),
                             xycoords="axes fraction",
                             fontsize="x-small",
@@ -941,7 +1346,7 @@ class Tau(MultiRunFigure):
                     # title
 
                     _ax.set_title(
-                        f"{constants.G_GABA} = {g_gaba} nS",
+                        f"{text.G_GABA} = {g_gaba} nS",
                         fontsize="small",
                         color=settings.COLOR.G_GABA_SM.to_rgba(g_gaba),
                     )
@@ -994,19 +1399,15 @@ class Tau(MultiRunFigure):
 
                 df = df_num_bursts[df_num_bursts["g_GABA"] == g_gaba]
 
-                df[f"{constants.TAU_KCC2_E} (s)"] = df[constants.TAU_KCC2_E].apply(
+                df[f"{text.TAU_KCC2_E} (s)"] = df[text.TAU_KCC2_E].apply(
                     lambda x: f"{x:.0f}"
                 )
-                df[constants.TAU_KCC2_E] = (
-                    df[constants.TAU_KCC2_E].astype(int).astype("category")
-                )
-                df[constants.TAU_KCC2_I] = (
-                    df[constants.TAU_KCC2_I].astype(int).astype("category")
-                )
+                df[text.TAU_KCC2_E] = df[text.TAU_KCC2_E].astype(int).astype("category")
+                df[text.TAU_KCC2_I] = df[text.TAU_KCC2_I].astype(int).astype("category")
 
                 mean_num_bursts = (
                     df.groupby(
-                        ["g_GABA", constants.TAU_KCC2_E, constants.TAU_KCC2_I],
+                        ["g_GABA", text.TAU_KCC2_E, text.TAU_KCC2_I],
                     )["Number of bursts"]
                     .agg(["count", "sum", "mean", "std"])
                     .reset_index()
@@ -1018,8 +1419,8 @@ class Tau(MultiRunFigure):
                 )
 
                 square_df = mean_num_bursts.pivot(
-                    index=constants.TAU_KCC2_I,
-                    columns=constants.TAU_KCC2_E,
+                    index=text.TAU_KCC2_I,
+                    columns=text.TAU_KCC2_E,
                     values="Number of bursts",
                 )[::-1]
 
@@ -1085,15 +1486,15 @@ class Tau(MultiRunFigure):
                 # LINEPLOT of BURSTS
                 ############################
                 # lineplot for tau_KCC2_E
-                df[constants.TAU_KCC2_I] = df[constants.TAU_KCC2_I].astype(int)
-                tau_i = sorted(df[constants.TAU_KCC2_I].unique())
+                df[text.TAU_KCC2_I] = df[text.TAU_KCC2_I].astype(int)
+                tau_i = sorted(df[text.TAU_KCC2_I].unique())
 
                 pbar.set_postfix_str("lineplot")
                 sns.lineplot(
                     data=df,
-                    x=f"{constants.TAU_KCC2_E} (s)",
+                    x=f"{text.TAU_KCC2_E} (s)",
                     y="Number of bursts",
-                    hue=constants.TAU_KCC2_I,
+                    hue=text.TAU_KCC2_I,
                     hue_order=tau_i,
                     palette=sns.color_palette("RdPu", len(tau_i), desat=0.6),
                     ax=ax_tau_pc,
@@ -1109,21 +1510,21 @@ class Tau(MultiRunFigure):
                 # HISTPLOT of BURSTS
                 ############################
                 ratio = tau_i[1] / tau_i[0]
-                bins = np.append(tau_i, df[constants.TAU_KCC2_I].max() * ratio)
+                bins = np.append(tau_i, df[text.TAU_KCC2_I].max() * ratio)
                 pbar.set_postfix_str("histplot")
                 mean = df.groupby(
-                    [constants.TAU_KCC2_I, constants.TAU_KCC2_E], as_index=False
+                    [text.TAU_KCC2_I, text.TAU_KCC2_E], as_index=False
                 ).mean(numeric_only=True)
                 sem = df.groupby(
-                    [constants.TAU_KCC2_I, constants.TAU_KCC2_E], as_index=False
+                    [text.TAU_KCC2_I, text.TAU_KCC2_E], as_index=False
                 ).sem(numeric_only=True)
                 mean["Tau (PC, IN)"] = mean.apply(
-                    lambda x: f"{x[constants.TAU_KCC2_E]:.0f}, {x[constants.TAU_KCC2_I]:.0f}",
+                    lambda x: f"{x[text.TAU_KCC2_E]:.0f}, {x[text.TAU_KCC2_I]:.0f}",
                     axis=1,
                 )
 
                 # cmap_tau_e_i_str = {
-                #     f"{tau_e:.0f}, {tau_i:.0f}": settings.lighten_color(
+                #     f"{tau_e:.0f}, {tau_i:.0f}": lighten_color(
                 #         settings.COLOR.TAU_PAL_DICT[tau_e],
                 #         1.2 if tau_i > tau_e else 0.8 if tau_i < tau_e else 1,
                 #     )
@@ -1132,11 +1533,11 @@ class Tau(MultiRunFigure):
 
                 sns.histplot(
                     data=mean,
-                    y=constants.TAU_KCC2_I,
+                    y=text.TAU_KCC2_I,
                     weights="Number of bursts",
                     stat="count",
-                    hue=constants.TAU_KCC2_E,
-                    hue_order=sorted(df[constants.TAU_KCC2_E].unique()),
+                    hue=text.TAU_KCC2_E,
+                    hue_order=sorted(df[text.TAU_KCC2_E].unique()),
                     palette=settings.COLOR.TAU_PAL,
                     # hue="Tau (PC, IN)",
                     # palette=cmap_tau_e_i_str,
@@ -1150,7 +1551,7 @@ class Tau(MultiRunFigure):
                     legend=g == 0,
                 )
                 # add errbars
-                y = mean[constants.TAU_KCC2_I]
+                y = mean[text.TAU_KCC2_I]
                 # move y to center of bin
 
                 move_value_by_bin_diff = dict(zip(bins, np.diff(bins) / 2))
@@ -1216,10 +1617,8 @@ class Tau(MultiRunFigure):
                 ax_tau_in.set(ylabel="", xlabel="Number of bursts")
                 # set x scale to log 2
                 ax_tau_in.set_yscale("log", base=ratio)
-                ax_tau_in.set_yticks(
-                    df[constants.TAU_KCC2_I].unique() + np.diff(bins) / 2
-                )
-                ax_tau_in.set_yticklabels(df[constants.TAU_KCC2_I].unique())
+                ax_tau_in.set_yticks(df[text.TAU_KCC2_I].unique() + np.diff(bins) / 2)
+                ax_tau_in.set_yticklabels(df[text.TAU_KCC2_I].unique())
                 ax_tau_in.tick_params(
                     axis="y", which="both", left=True, labelleft=False
                 )
@@ -1256,20 +1655,20 @@ class Tau(MultiRunFigure):
                             alpha=0.5,
                             edgecolor=settings.COLOR.TAU_PAL_DICT[i],
                         )
-                        for i in sorted(df[constants.TAU_KCC2_E].unique())
+                        for i in sorted(df[text.TAU_KCC2_E].unique())
                     ]
                     ax_tau_in.legend(
                         handles,
-                        sorted(df[constants.TAU_KCC2_E].unique(), reverse=False),
+                        sorted(df[text.TAU_KCC2_E].unique(), reverse=False),
                         loc=(0, 1),
-                        ncol=len(df[constants.TAU_KCC2_E].unique()),
+                        ncol=len(df[text.TAU_KCC2_E].unique()),
                         handletextpad=0,
                         handlelength=0,
                         columnspacing=0.2,
                         labelspacing=0,
                         labelcolor=settings.COLOR.TAU_PAL,
                         fontsize="x-small",
-                        title=f"{constants.TAU_KCC2_E} (s)",
+                        title=f"{text.TAU_KCC2_E} (s)",
                         title_fontsize="small",
                         frameon=False,
                     )
@@ -1282,7 +1681,7 @@ class Tau(MultiRunFigure):
                         labelspacing=0,
                         labelcolor="linecolor",
                         fontsize="x-small",
-                        title=f"{constants.TAU_KCC2_I} (s)",
+                        title=f"{text.TAU_KCC2_I} (s)",
                         title_fontsize="small",
                         frameon=False,
                     )
@@ -1297,23 +1696,23 @@ class Tau(MultiRunFigure):
         ax_tau_e_summary = axes["tau_KCC2_E_summary"]
         ax_tau_i_summary = axes["tau_KCC2_I_summary"]
 
-        df_num_bursts[constants.G_GABA] = df_num_bursts["g_GABA"].astype(int)
-        df_num_bursts[constants.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
-        df_num_bursts[constants.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
+        df_num_bursts[text.G_GABA] = df_num_bursts["g_GABA"].astype(int)
+        df_num_bursts[text.TAU_KCC2_I] = df_num_bursts["KCC2 I"].astype(int)
+        df_num_bursts[text.TAU_KCC2_E] = df_num_bursts["KCC2 E"].astype(int)
 
-        renamed_col = f"Number of bursts\n(mean of {constants.TAU_KCC2_I})"
-        g_gaba_order = sorted(df_num_bursts[constants.G_GABA].unique())
+        renamed_col = f"Number of bursts\n(mean of {text.TAU_KCC2_I})"
+        g_gaba_order = sorted(df_num_bursts[text.G_GABA].unique())
         palette = {c: settings.COLOR.G_GABA_SM.to_rgba(c) for c in g_gaba_order}
         sns.lineplot(
             data=df_num_bursts.groupby(
-                [constants.G_GABA, constants.TAU_KCC2_E, "run_idx"],
+                [text.G_GABA, text.TAU_KCC2_E, "run_idx"],
                 as_index=False,
             )
             .mean()
             .rename(columns={"Number of bursts": renamed_col}),
-            x=constants.TAU_KCC2_E,
+            x=text.TAU_KCC2_E,
             y=renamed_col,
-            hue=constants.G_GABA,
+            hue=text.G_GABA,
             hue_order=g_gaba_order,
             palette=palette,
             ax=ax_tau_e_summary,
@@ -1321,19 +1720,19 @@ class Tau(MultiRunFigure):
             errorbar="se",
         )
 
-        renamed_col = f"Number of bursts\n(mean of {constants.TAU_KCC2_E})"
+        renamed_col = f"Number of bursts\n(mean of {text.TAU_KCC2_E})"
         sns.lineplot(
             data=df_num_bursts.groupby(
-                [constants.G_GABA, constants.TAU_KCC2_I, "run_idx"],
+                [text.G_GABA, text.TAU_KCC2_I, "run_idx"],
                 as_index=False,
             )
             .mean()
             .rename(columns={"Number of bursts": renamed_col}),
-            x=constants.TAU_KCC2_I,
+            x=text.TAU_KCC2_I,
             y=renamed_col,
             # stat="count",
-            hue=constants.G_GABA,
-            hue_order=sorted(df_num_bursts[constants.G_GABA].unique()),
+            hue=text.G_GABA,
+            hue_order=sorted(df_num_bursts[text.G_GABA].unique()),
             palette=palette,
             # multiple="layer",
             # element="step",
@@ -1345,9 +1744,9 @@ class Tau(MultiRunFigure):
             errorbar="se",
         )
         ax_tau_e_summary.set_xscale("log", base=ratio)
-        ax_tau_e_summary.set_xticks(df_num_bursts[constants.TAU_KCC2_E].unique())
+        ax_tau_e_summary.set_xticks(df_num_bursts[text.TAU_KCC2_E].unique())
         ax_tau_e_summary.set_xticklabels(
-            df_num_bursts[constants.TAU_KCC2_E].unique(), fontsize="x-small"
+            df_num_bursts[text.TAU_KCC2_E].unique(), fontsize="x-small"
         )
         # ax_tau_e_summary.tick_params(axis="y", which="both", left=True, labelleft=False)
         ax_tau_e_summary.set_yticks(np.arange(0, vmax + 1, 20))
@@ -1361,16 +1760,16 @@ class Tau(MultiRunFigure):
         )
 
         ax_tau_i_summary.set_xscale("log", base=ratio)
-        ax_tau_i_summary.set_xticks(df[constants.TAU_KCC2_I].unique())
+        ax_tau_i_summary.set_xticks(df[text.TAU_KCC2_I].unique())
         ax_tau_i_summary.set_xticklabels(
-            df[constants.TAU_KCC2_I].unique(), fontsize="x-small"
+            df[text.TAU_KCC2_I].unique(), fontsize="x-small"
         )
 
         ax_tau_e_summary.legend(
             loc=(0, 1),
-            ncol=len(df_num_bursts[constants.G_GABA].unique()),
+            ncol=len(df_num_bursts[text.G_GABA].unique()),
             mode="expand",
-            title=f"{constants.G_GABA} (nS)",
+            title=f"{text.G_GABA} (nS)",
             title_fontsize="medium",
             fontsize="small",
             frameon=False,
@@ -1405,8 +1804,8 @@ class Tau(MultiRunFigure):
             .groupby(["g_GABA", "KCC2 E"])
             .mean()
         )
-        tau_kcc2_e_label = f"{constants.TAU_KCC2_E} (s)"
-        tau_kcc2_i_label = f"{constants.TAU_KCC2_I} (s)"
+        tau_kcc2_e_label = f"{text.TAU_KCC2_E} (s)"
+        tau_kcc2_i_label = f"{text.TAU_KCC2_I} (s)"
 
         for kcc2 in tau_KCC2_E_list:
             mask = df_num_bursts["KCC2 I"] == kcc2
@@ -1423,7 +1822,7 @@ class Tau(MultiRunFigure):
             columns={
                 "KCC2 I": tau_kcc2_i_label,
                 "KCC2 E": tau_kcc2_e_label,
-                "g_GABA": constants.G_GABA,
+                "g_GABA": text.G_GABA,
             },
             inplace=True,
         )
@@ -1435,7 +1834,7 @@ class Tau(MultiRunFigure):
         sns.lineplot(
             y="Number of bursts",
             x=tau_kcc2_e_label,
-            hue=constants.G_GABA,
+            hue=text.G_GABA,
             # hue_order=df_num_bursts['g_GABA'].unique(),
             err_style="bars",
             palette=palette,
@@ -1444,7 +1843,7 @@ class Tau(MultiRunFigure):
             legend=False,
         )
 
-        # sns.barplot(y='Number of bursts', x=tau_kcc2_e_label, hue=constants.G_GABA,
+        # sns.barplot(y='Number of bursts', x=tau_kcc2_e_label, hue=text.G_GABA,
         #             # hue_order=df_num_bursts['g_GABA'].unique(),
         #             errwidth=1, capsize=0.1,
         #             palette=palette,
@@ -1454,7 +1853,7 @@ class Tau(MultiRunFigure):
             loc=(0, 1),
             frameon=False,
             fontsize="x-small",
-            title=constants.G_GABA + "(nS)",
+            title=text.G_GABA + "(nS)",
             title_fontsize="small",
             handlelength=0,
             ncol=len(full_g_GABA_list),
@@ -1479,11 +1878,11 @@ class Tau(MultiRunFigure):
         sns.lineplot(
             y="Number of bursts",
             x=tau_kcc2_i_label,
-            hue=constants.G_GABA,
+            hue=text.G_GABA,
             err_style="bars",
             palette=palette,
             data=df_num_bursts.groupby(
-                [constants.G_GABA, tau_kcc2_i_label, "run_idx"], as_index=False
+                [text.G_GABA, tau_kcc2_i_label, "run_idx"], as_index=False
             ).sum(),
             legend=False,
             ax=ax_bursts_norm_g,
@@ -1665,9 +2064,7 @@ class Tau(MultiRunFigure):
 
         tau_KCC2_E_list, tau_KCC2_I_list = self.tau_KCC2_E_list, self.tau_KCC2_I_list
 
-        cmap = settings.categorical_cmap(
-            tau_KCC2_E_list.__len__(), tau_KCC2_I_list.__len__()
-        )
+        cmap = categorical_cmap(tau_KCC2_E_list.__len__(), tau_KCC2_I_list.__len__())
         p_i = 0
 
         _e_proportion = False
@@ -1735,7 +2132,7 @@ class Tau(MultiRunFigure):
         #     ax_i.xaxis.label.set_visible(False)
         #     ax_i.set_xticklabels([])
         for i in range(len(plot_widths)):
-            ax[-1, i].set_xlabel(f"{constants.TIME}" + " (%s)" % time_unit)
+            ax[-1, i].set_xlabel(f"{text.TIME}" + " (%s)" % time_unit)
         for i, col in enumerate(plot_cols):
             ax[0, i].set_title(col, fontsize="small", va="top")
         return _ax
@@ -1744,8 +2141,8 @@ class Tau(MultiRunFigure):
         fig, ax = plt.subplots()
         vmax = df_num_bursts["Number of bursts"].max()
         sns.scatterplot(
-            x=constants.TAU_KCC2_E,
-            y=constants.TAU_KCC2_I,
+            x=text.TAU_KCC2_E,
+            y=text.TAU_KCC2_I,
             hue="Number of bursts",
             size="Number of bursts",
             hue_norm=(0, vmax),

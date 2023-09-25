@@ -664,7 +664,7 @@ class MultiRunFigure(LRDFigure):
         _df.sort_index(axis="columns", inplace=True)
         return _df
 
-    def process_data(self):
+    def process(self):
         pass
 
 

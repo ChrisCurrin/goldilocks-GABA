@@ -54,6 +54,7 @@ class AnchoredScaleBar(AnchoredOffsetbox):
             textprops = dict(ha="left")
         elif "ha" not in textprops:
             textprops["ha"] = "left"
+        y_rotation = textprops.pop("y_rotation", y_rotation)
 
         if sizex and labelx:
             self.xlabel = TextArea(labelx, textprops=textprops)

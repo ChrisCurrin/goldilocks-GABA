@@ -14,7 +14,7 @@ from tqdm import tqdm
 from core.analysis import burst_stats
 from core.lrdfigure import MultiRunFigure
 from settings import (
-    constants,
+    text,
     logging,
     time_unit,
     PAGE_W_FULL,
@@ -25,7 +25,7 @@ from style.axes import colorline
 
 logger = logging.getLogger(__name__)
 
-round_EGABA = f"{constants.E_GABA}"
+round_EGABA = f"{text.E_GABA}"
 
 
 class Params(MultiRunFigure):
@@ -80,9 +80,9 @@ class Params(MultiRunFigure):
 
         super().__init__(
             OrderedDict(
-                g_GABA_max={"range": self.gGABAs, "title": constants.G_GABA},
-                g_AMPA_max={"range": self.gAMPAs, "title": constants.G_AMPA},
-                g_NMDA_max={"range": self.gNMDAs, "title": constants.G_NMDA},
+                g_GABA_max={"range": self.gGABAs, "title": text.G_GABA},
+                g_AMPA_max={"range": self.gAMPAs, "title": text.G_AMPA},
+                g_NMDA_max={"range": self.gNMDAs, "title": text.G_NMDA},
             ),
             default_params=dict(
                 manual_cl=manual_cl, duration=duration, num_ecl_steps=num_ecl_steps
@@ -102,10 +102,10 @@ class Params(MultiRunFigure):
         df_g_E = pd.DataFrame(
             columns=[
                 "run_idx",
-                constants.EGABA,
-                constants.G_GABA,
-                constants.G_AMPA,
-                constants.G_NMDA,
+                text.EGABA,
+                text.G_GABA,
+                text.G_AMPA,
+                text.G_NMDA,
                 "Burst start time (s)",
             ]
         )
@@ -164,10 +164,10 @@ class Params(MultiRunFigure):
         df_g_E_bursts = (
             df_g_E.groupby(
                 [
-                    constants.EGABA,
-                    constants.G_GABA,
-                    constants.G_AMPA,
-                    constants.G_NMDA,
+                    text.EGABA,
+                    text.G_GABA,
+                    text.G_AMPA,
+                    text.G_NMDA,
                     "run_idx",
                 ],
                 as_index=False,
@@ -177,7 +177,7 @@ class Params(MultiRunFigure):
         )
         # df_g_E_bursts[num_bursts_col] = df_g_E_bursts[num_bursts_col].fillna(0)/bin_size/len(self.seeds)
         df_g_E_bursts["hyperpolaring\nEGABA"] = pd.cut(
-            df_g_E_bursts[constants.EGABA],
+            df_g_E_bursts[text.EGABA],
             bins=[-100, -55, 0],
             labels=[True, False],
         )
@@ -233,8 +233,8 @@ class Params(MultiRunFigure):
                 df_rates.index,
                 df_rates.values,
                 z=df_egaba.values,
-                cmap=sns.blend_palette(["Blue", "Purple", "Red"], as_cmap=True),
-                norm=norm,
+                cmap=COLOR.EGABA_SM.get_cmap(),
+                norm=COLOR.EGABA_SM.norm,
                 linewidth=0.5,
                 ax=ax,
                 rasterized=True,
@@ -290,9 +290,9 @@ class Params(MultiRunFigure):
         df_g_E_bursts = self.df_g_E_bursts
         num_bursts_col = self.num_bursts_col
 
-        df_g_E_bursts[constants.G_AMPA] = df_g_E_bursts[constants.G_AMPA].astype(int)
-        df_g_E_bursts[constants.G_GABA] = df_g_E_bursts[constants.G_GABA].astype(int)
-        df_g_E_bursts[constants.G_NMDA] = df_g_E_bursts[constants.G_NMDA].astype(float)
+        df_g_E_bursts[text.G_AMPA] = df_g_E_bursts[text.G_AMPA].astype(int)
+        df_g_E_bursts[text.G_GABA] = df_g_E_bursts[text.G_GABA].astype(int)
+        df_g_E_bursts[text.G_NMDA] = df_g_E_bursts[text.G_NMDA].astype(float)
 
         # bursts v G with G_AMPA
         for (g, g_nmda), (e, egaba) in itertools.product(
@@ -312,13 +312,13 @@ class Params(MultiRunFigure):
                 errcolor = "b"
 
             sns.barplot(
-                x=constants.G_GABA,
+                x=text.G_GABA,
                 y=num_bursts_col,
                 # hue="AMPA+NMDA",
                 # hue_order=order,
-                hue=constants.G_AMPA,
+                hue=text.G_AMPA,
                 hue_order=sorted(
-                    df_g_E_bursts[constants.G_AMPA].unique(), reverse=False
+                    df_g_E_bursts[text.G_AMPA].unique(), reverse=False
                 ),
                 # err_style='band',
                 errcolor=errcolor,
@@ -327,8 +327,8 @@ class Params(MultiRunFigure):
                 palette=pal,
                 # palette=cs,
                 data=df_g_E_bursts[
-                    (df_g_E_bursts[constants.EGABA] == egaba)
-                    & (df_g_E_bursts[constants.G_NMDA] == g_nmda)
+                    (df_g_E_bursts[text.EGABA] == egaba)
+                    & (df_g_E_bursts[text.G_NMDA] == g_nmda)
                 ],
                 ax=axes[e, g],
             )
@@ -340,7 +340,7 @@ class Params(MultiRunFigure):
                 axes[e, g].set_ylabel(num_bursts_col)
                 # annotate egaba
                 axes[e, g].annotate(
-                    f"{constants.E_GABA}\n{egaba:.0f} mV",
+                    f"{text.E_GABA}\n{egaba:.0f} mV",
                     xy=(0.0, 1.0),
                     xycoords="axes fraction",
                     xytext=(0, 5),
@@ -359,12 +359,12 @@ class Params(MultiRunFigure):
             # title
             if e == 0:
                 axes[e, g].set_title(
-                    f"{constants.G_NMDA}\n{g_nmda} nS", va="bottom", fontsize="small"
+                    f"{text.G_NMDA}\n{g_nmda} nS", va="bottom", fontsize="small"
                 )
 
             # x label
             if e == len(axes) - 1:
-                axes[e, g].set_xlabel(f"{constants.G_GABA} (ns)")
+                axes[e, g].set_xlabel(f"{text.G_GABA} (ns)")
             else:
                 axes[e, g].set_xlabel("")
 
@@ -375,7 +375,7 @@ class Params(MultiRunFigure):
 
             if g == 0:
                 leg = axes[e, g].legend(
-                    ncol=len(df_g_E_bursts[constants.G_AMPA].unique()),
+                    ncol=len(df_g_E_bursts[text.G_AMPA].unique()),
                     loc="upper left",
                     bbox_to_anchor=(0, 1.0),
                     handlelength=1,
@@ -384,7 +384,7 @@ class Params(MultiRunFigure):
                     # mode="expand",
                     fontsize="x-small",
                     frameon=False,
-                    title=f"{constants.G_AMPA} (ns)",
+                    title=f"{text.G_AMPA} (ns)",
                     title_fontsize="small",
                 )
 
@@ -410,12 +410,7 @@ if __name__ == "__main__":
         ],
         gAMPAs=np.round(np.arange(0, 20.0001, 5.0), 0),
         gNMDAs=[5.0, 7.5, 10.0],
-        seeds=(
-            None,
-            1013,
-            12987,
-               1234, 1837
-        ),
+        seeds=(None, 1013, 12987, 1234, 1837),
         __device_directory=f".cpp_{Params.fig_name}",
     )
     exc_params.run()

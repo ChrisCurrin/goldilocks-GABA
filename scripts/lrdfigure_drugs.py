@@ -13,7 +13,7 @@ from tqdm import tqdm
 import settings
 from core.analysis import burst_stats, get_duration_interval, inst_burst_rate
 from core.lrdfigure import MultiRunFigure
-from settings import constants, logging, time_unit
+from settings import text, logging, time_unit
 from style.axes import adjust_spines, use_scalebar
 from style.color import get_benzo_color, get_drug_label
 from style.figure import new_gridspec
@@ -341,7 +341,7 @@ class Drugs(MultiRunFigure):
         ax_stats = []
         _ax_stat = None
         labels = []
-        xlabel = f"{constants.G_GABA} modulation ($\\times $ 50 nS)"
+        xlabel = f"{text.G_GABA} modulation ($\\times $ 50 nS)"
         for stat_idx, stat_name in enumerate(stats_to_plot):
             logger.debug(f"plotting {stat_name}")
             if stat_name == "Number":
@@ -560,7 +560,7 @@ class Drugs(MultiRunFigure):
                 elif drug < 1:
                     s = "picrotoxin"
                 else:
-                    s = f"{constants.G_GABA} = 50 nS"
+                    s = f"{text.G_GABA} = 50 nS"
                 drug_ax.text(
                     benzo_off_t / 2 + benzo_onset_t / 2,
                     0,
@@ -611,7 +611,7 @@ class Drugs(MultiRunFigure):
                         label_text="",
                     )
                     _ax.annotate(
-                        f"{constants.EGABA} = {egaba:.1f} mV",
+                        f"{text.EGABA} = {egaba:.1f} mV",
                         xy=(0, 1),
                         fontsize="large",
                         ha="left",

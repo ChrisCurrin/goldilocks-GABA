@@ -18,16 +18,17 @@ import settings
 from core.analysis import burst_stats
 from core.lrdfigure import MultiRunFigure, time_unit
 from settings import logging
-from style import constants
+from style import text
 from style.axes import adjust_spines
-from style.text import math_fix
+from style.color import COLOR, G_GABA_Norm
+from style.text_math import math_fix
 
 logger = logging.getLogger(__name__)
-round_EGABA = f"{constants.E_GABA}"
+round_EGABA = f"{text.E_GABA}"
 sum_igaba = math_fix(
-    r"$\sum_b^{bursts} \int_{b_{start} - 1 s}^{b_{start}} " f"{constants.I_GABA} (pA)$"
+    r"$\sum_b^{bursts} \int_{b_{start} - 1 s}^{b_{start}} " f"{text.I_GABA} (pA)$"
 )
-mean_igaba = math_fix(f"$\langle {constants.I_GABA} \\rangle (pA)$")  # noqa: W605
+mean_igaba = math_fix(f"$\langle {text.I_GABA} \\rangle (pA)$")  # noqa: W605
 
 
 class Gve(MultiRunFigure):
@@ -48,7 +49,7 @@ class Gve(MultiRunFigure):
         self.gGABAsvEGABA = gGABAsvEGABA if gGABAsvEGABA is not None else gGABAs
         self.figs = []
         super().__init__(
-            OrderedDict(g_GABA_max={"range": self.gGABAs, "title": constants.G_GABA}),
+            OrderedDict(g_GABA_max={"range": self.gGABAs, "title": text.G_GABA}),
             **kwargs,
         )
 
@@ -89,7 +90,7 @@ class Gve(MultiRunFigure):
         manual_cl = kwargs.pop("manual_cl", True)
         super().__init__(
             OrderedDict(
-                g_GABA_max={"range": self.gGABAsvEGABA, "title": constants.G_GABA},
+                g_GABA_max={"range": self.gGABAsvEGABA, "title": text.G_GABA},
             ),
             seeds=self.seeds,
             default_params=dict(
@@ -107,9 +108,9 @@ class Gve(MultiRunFigure):
 
         super().__init__(
             OrderedDict(
-                g_GABA_max={"range": self.gGABAs, "title": constants.G_GABA},
-                tau_KCC2_E={"range": self.tau_KCC2s, "title": constants.TAU_KCC2},
-                tau_KCC2_I=constants.TAU_KCC2,
+                g_GABA_max={"range": self.gGABAs, "title": text.G_GABA},
+                tau_KCC2_E={"range": self.tau_KCC2s, "title": text.TAU_KCC2},
+                tau_KCC2_I=text.TAU_KCC2,
             ),
             seeds=self.seeds,
             default_params=dict(
@@ -163,9 +164,9 @@ class Gve(MultiRunFigure):
         df_g_E = pd.DataFrame(
             columns=[
                 "run_idx",
-                constants.I_GABA,
-                constants.EGABA,
-                constants.G_GABA,
+                text.I_GABA,
+                text.EGABA,
+                text.G_GABA,
                 "Burst start time (s)",
             ]
         )
@@ -228,10 +229,10 @@ class Gve(MultiRunFigure):
         df_g_tau = pd.DataFrame(
             columns=[
                 "run_idx",
-                constants.I_GABA,
-                constants.EGABA,
-                constants.G_GABA,
-                constants.TAU_KCC2,
+                text.I_GABA,
+                text.EGABA,
+                text.G_GABA,
+                text.TAU_KCC2,
                 "Burst start time (s)",
             ]
         )
@@ -244,8 +245,8 @@ class Gve(MultiRunFigure):
                 instance_df = self.dynamic[gGABA, tau_KCC2, run_idx]
             else:
                 instance_df = self.dynamic[
-                    (self.dynamic[constants.G_GABA] == gGABA)
-                    & (self.dynamic[constants.TAU_KCC2] == tau_KCC2)
+                    (self.dynamic[text.G_GABA] == gGABA)
+                    & (self.dynamic[text.TAU_KCC2] == tau_KCC2)
                     & (self.dynamic["run_idx"] == run_idx)
                 ].to_pandas_df(["E_GABA_all", "I_GABA_all", "r_all"], index_name="Time")
 
@@ -297,12 +298,12 @@ class Gve(MultiRunFigure):
         )
 
         df_g_E_bursts = (
-            df_g_E.groupby([constants.EGABA, constants.G_GABA, "bin", "run_idx"])
+            df_g_E.groupby([text.EGABA, text.G_GABA, "bin", "run_idx"])
             .agg(["count", "sum", "mean"])
             .dropna()
             .drop(
                 [
-                    (constants.I_GABA, "count"),
+                    (text.I_GABA, "count"),
                     ("Burst start time (s)", "sum"),
                     ("Burst start time (s)", "mean"),
                 ],
@@ -313,21 +314,21 @@ class Gve(MultiRunFigure):
         df_g_E_bursts.columns = [sum_igaba, mean_igaba, num_bursts_col]
         df_g_E_bursts.reset_index(inplace=True)
         df_g_E_bursts["hyperpolaring\nEGABA"] = pd.cut(
-            df_g_E_bursts[constants.EGABA], bins=[-100, -60, 0], labels=[True, False]
+            df_g_E_bursts[text.EGABA], bins=[-100, -60, 0], labels=[True, False]
         )
 
-        df_g_tau[round_EGABA] = df_g_tau[constants.EGABA].round(0)
+        df_g_tau[round_EGABA] = df_g_tau[text.EGABA].round(0)
 
         df_g_tau_bursts = (
             df_g_tau.groupby(
-                [round_EGABA, constants.G_GABA, constants.TAU_KCC2, "bin", "run_idx"]
+                [round_EGABA, text.G_GABA, text.TAU_KCC2, "bin", "run_idx"]
             )
             .agg(["count", "sum", "mean"])
             .dropna()
             .drop(
                 [
-                    (constants.I_GABA, "count"),
-                    constants.EGABA,
+                    (text.I_GABA, "count"),
+                    text.EGABA,
                     ("Burst start time (s)", "sum"),
                     ("Burst start time (s)", "mean"),
                 ],
@@ -337,7 +338,7 @@ class Gve(MultiRunFigure):
         # change from hierarchical index to flat index and change name
         df_g_tau_bursts.columns = [sum_igaba, mean_igaba, num_bursts_col]
         df_g_tau_bursts.reset_index(inplace=True)
-        # df_mean = df_g_tau.groupby([round_EGABA, constants.G_GABA, constants.TAU_KCC2, 'bin', 'run_idx'],
+        # df_mean = df_g_tau.groupby([round_EGABA, text.G_GABA, text.TAU_KCC2, 'bin', 'run_idx'],
         #                            as_index=False).mean().dropna()
 
         self.df_g_E = df_g_E
@@ -399,9 +400,9 @@ class Gve(MultiRunFigure):
         self.plot_staticegaba(ax=static_ax, egabas=egabas)
         static_ax.set_xlim(10, xmax=1000)
         static_ax.set_ylim(0, ymax=13)
-        static_ax.set_xlabel(f"{constants.G_GABA} (nS)")
-        # sns.scatterplot(x=constants.G_GABA, y=round_EGABA,
-        #                 hue=constants.TAU_KCC2,
+        static_ax.set_xlabel(f"{text.G_GABA} (nS)")
+        # sns.scatterplot(x=text.G_GABA, y=round_EGABA,
+        #                 hue=text.TAU_KCC2,
         #                 size=self.num_bursts_col,
         #                 # palette="coolwarm",
         #                 # ec='None',
@@ -420,7 +421,7 @@ class Gve(MultiRunFigure):
             num_bursts=num_bursts,
             **kwargs,
         )
-        tau_ax.set_xlabel(f"{constants.G_GABA} (nS)")
+        tau_ax.set_xlabel(f"{text.G_GABA} (nS)")
 
         vline_kwargs = dict(c=settings.COLOR.K, ls="-", lw=1)
         static_ax.axvline(50, zorder=1, **vline_kwargs)
@@ -433,14 +434,14 @@ class Gve(MultiRunFigure):
         self.plot_igaba(fig=fig, ax=igaba_ax, cax=igaba_cax, num_bursts=num_bursts)
 
         static_ax.set_title(
-            constants.STATIC_CHLORIDE_STR_ABBR,
+            text.STATIC_CHLORIDE_STR_ABBR,
             fontsize="medium",
             va="top",
             ha="center",
             loc="left",
         )
         tau_ax.set_title(
-            constants.DYNAMIC_CHLORIDE_STR_ABBR,
+            text.DYNAMIC_CHLORIDE_STR_ABBR,
             fontsize="medium",
             va="bottom",
             ha="center",
@@ -488,7 +489,7 @@ class Gve(MultiRunFigure):
         else:
             mesh_cmap = mesh_cmap
         p = self.df_g_tau.pivot_table(
-            values=constants.EGABA, index=constants.TAU_KCC2, columns=constants.G_GABA
+            values=text.EGABA, index=text.TAU_KCC2, columns=text.G_GABA
         )
         x = p.columns
         y = p.index
@@ -532,8 +533,8 @@ class Gve(MultiRunFigure):
 
             n = self.df_g_tau_bursts.pivot_table(
                 values=self.num_bursts_col,
-                index=constants.TAU_KCC2,
-                columns=constants.G_GABA,
+                index=text.TAU_KCC2,
+                columns=text.G_GABA,
             )
             xx, yy = np.meshgrid(x, y)
             ax.scatter(
@@ -584,10 +585,10 @@ class Gve(MultiRunFigure):
 
             # get average number of bursts per g_gaba, tau_kcc2
             mean_bursts_per_g_gaba_tau_kcc2 = self.df_g_tau_bursts.groupby(
-                [constants.G_GABA, constants.TAU_KCC2], as_index=False
+                [text.G_GABA, text.TAU_KCC2], as_index=False
             ).mean(numeric_only=True)
             max_bursts_per_g_gaba_tau_kcc2 = self.df_g_tau_bursts.groupby(
-                [constants.G_GABA, constants.TAU_KCC2], as_index=False
+                [text.G_GABA, text.TAU_KCC2], as_index=False
             ).max(numeric_only=True)
             mean_bursts_per_g_gaba_tau_kcc2[
                 self.num_bursts_col
@@ -610,14 +611,14 @@ class Gve(MultiRunFigure):
             hue_norm = Normalize(1, bursts_max)
             size_norm = Normalize(1, bursts_max)
             sns.scatterplot(
-                y=constants.TAU_KCC2,
-                x=constants.G_GABA,
+                y=text.TAU_KCC2,
+                x=text.G_GABA,
                 hue=self.num_bursts_col,
                 hue_norm=hue_norm,
                 size=self.num_bursts_col,
                 size_norm=size_norm,
                 sizes=sizes,
-                palette=settings.COLOR.NUM_BURSTS_PALETTE,
+                palette=settings.COLOR.NUM_BURSTS_CMAP,
                 #  alpha=0.8,
                 # set style so that legend has the right marker
                 style=self.num_bursts_col,
@@ -675,7 +676,7 @@ class Gve(MultiRunFigure):
                 line.set_edgecolor("w")
 
             ax_g_v_tau.set_yscale("log")
-            tau_KCC2_list = self.df_g_tau[constants.TAU_KCC2].unique()
+            tau_KCC2_list = self.df_g_tau[text.TAU_KCC2].unique()
             ax_g_v_tau.set_yticks(tau_KCC2_list)
             ax_g_v_tau.set_yticks([], minor=True)
             ax_g_v_tau.set_yticklabels(
@@ -684,7 +685,7 @@ class Gve(MultiRunFigure):
             # ax_g_v_tau.yaxis.set_major_formatter(ticker.FormatStrFormatter("%0.1f"))
 
             ax_g_v_tau.set_ylim(tau_KCC2_list[0])
-            g_gaba_list = self.df_g_tau[constants.G_GABA].unique()
+            g_gaba_list = self.df_g_tau[text.G_GABA].unique()
             ax_g_v_tau.set_xlim(g_gaba_list[0])
             if g_gaba_list[-1] > 100:
                 ax_g_v_tau.set_xscale("log")
@@ -704,14 +705,12 @@ class Gve(MultiRunFigure):
                 cmap=mesh_cmap,
                 norm=mesh_norm,
             )
-        cbar.set_label(f"{constants.EGABA} (mV)")
+        cbar.set_label(f"{text.EGABA} (mV)")
         cbar.outline.set_visible(False)
         # cbar.set_ticks(np.arange(norm.vmin, norm.vmax+1, 10))
         cbar.minorticks_on()
 
-    def i_explore(
-        self, i_metric: str = None, index=constants.E_GABA, columns=constants.G_GABA
-    ):
+    def i_explore(self, i_metric: str = None, index=text.E_GABA, columns=text.G_GABA):
         if i_metric is None:
             i_metric = self.sum_igaba
         fig, ax = plt.subplots(nrows=3, sharey=True, sharex=True)
@@ -754,7 +753,7 @@ class Gve(MultiRunFigure):
         cbar.set_label(i_metric)
 
         p = self.df_g_tau.pivot_table(
-            values=constants.I_GABA,
+            values=text.I_GABA,
             columns=columns,
             index=index,
         )
@@ -765,14 +764,14 @@ class Gve(MultiRunFigure):
             xx, yy, p, norm=Normalize(-1e4, 1e4), cmap="Blues", alpha=0.5
         )
         cbar = fig.colorbar(mesh, ax=ax[2])
-        cbar.set_label(constants.I_GABA)
+        cbar.set_label(text.I_GABA)
 
-        if index == constants.G_GABA:
+        if index == text.G_GABA:
             ax[0].set_yscale("log")
-        if columns == constants.G_GABA:
+        if columns == text.G_GABA:
             ax[0].set_xscale("log")
             for a in ax:
-                a.set_xlabel(constants.G_GABA)
+                a.set_xlabel(text.G_GABA)
 
         for a in ax:
             a.set_ylabel(index)
@@ -815,40 +814,40 @@ class Gve(MultiRunFigure):
             data = (
                 data[
                     [
-                        constants.G_GABA,
-                        constants.TAU_KCC2,
-                        constants.E_GABA,
+                        text.G_GABA,
+                        text.TAU_KCC2,
+                        text.E_GABA,
                         sum_igaba,
                         mean_igaba,
                         self.num_bursts_col,
                     ]
                 ]
-                .groupby(by=[constants.G_GABA, constants.TAU_KCC2], as_index=False)
+                .groupby(by=[text.G_GABA, text.TAU_KCC2], as_index=False)
                 .mean()
             )
             data2 = (
                 data2[
                     [
-                        constants.G_GABA,
-                        constants.EGABA,
+                        text.G_GABA,
+                        text.EGABA,
                         sum_igaba,
                         mean_igaba,
                         self.num_bursts_col,
                     ]
                 ]
-                .groupby(by=constants.G_GABA, as_index=False)
+                .groupby(by=text.G_GABA, as_index=False)
                 .mean()
             )
-        dynamic_value = f"Dynamic {constants.CL}"
-        static_value = f"Static {constants.CL}"
-        data[constants.ECL] = dynamic_value
-        data2[constants.ECL] = static_value
+        dynamic_value = f"Dynamic {text.CL}"
+        static_value = f"Static {text.CL}"
+        data[text.ECL] = dynamic_value
+        data2[text.ECL] = static_value
 
-        data[constants.TAU_KCC2] = data[constants.TAU_KCC2].astype(int)
+        data[text.TAU_KCC2] = data[text.TAU_KCC2].astype(int)
         # assign middle tau to static for sizing in graph
-        all_taus = data[constants.TAU_KCC2].unique()
+        all_taus = data[text.TAU_KCC2].unique()
         middle_tau = all_taus[len(all_taus) // 2]
-        data2[constants.TAU_KCC2] = middle_tau
+        data2[text.TAU_KCC2] = middle_tau
 
         combined_data = pd.concat([data, data2], axis=0)
         sns.regplot(
@@ -870,19 +869,19 @@ class Gve(MultiRunFigure):
             # arrowprops=dict(arrowstyle='-|>',connectionstyle="arc3, rad=-0.1")
         )
 
-        norm = settings.G_GABA_Norm(
-            50, data[constants.G_GABA].min(), data[constants.G_GABA].max()
+        norm = G_GABA_Norm(
+            50, data[text.G_GABA].min(), data[text.G_GABA].max()
         )
 
         sns.scatterplot(
             x=i_metric,
             y=self.num_bursts_col,
-            size=constants.TAU_KCC2,
+            size=text.TAU_KCC2,
             sizes=sizes,
-            hue=constants.G_GABA,
+            hue=text.G_GABA,
             hue_norm=norm,
-            palette=settings.COLOR.G_GABA_SM.get_cmap(),
-            style=constants.ECL,
+            palette=COLOR.G_GABA_SM.get_cmap(),
+            style=text.ECL,
             style_order=[dynamic_value, static_value],
             # marker='.',
             markers={static_value: "s", dynamic_value: "D"},
@@ -896,7 +895,7 @@ class Gve(MultiRunFigure):
         # sns.scatterplot(
         #     x=i_metric,
         #     y=self.num_bursts_col,
-        #     hue=constants.G_GABA,
+        #     hue=text.G_GABA,
         #     hue_norm=norm,
         #     palette=settings.COLOR.G_GABA_SM.get_cmap(),
         #     marker="D",
@@ -908,9 +907,9 @@ class Gve(MultiRunFigure):
         # )
         legend_path_collections, labels = ax.get_legend_handles_labels()
         # find label that has τKCC2
-        idx = labels.index(constants.TAU_KCC2) + 1
+        idx = labels.index(text.TAU_KCC2) + 1
         # find label that has ECl
-        idx_ecl = labels.index(constants.ECL)
+        idx_ecl = labels.index(text.ECL)
         # first ecl label is dynamic (based on style_order)
         diamond_path = legend_path_collections[idx_ecl + 1].get_paths()
         # add white edge to each line
@@ -926,7 +925,7 @@ class Gve(MultiRunFigure):
             fontsize="x-small",
             frameon=False,
             handletextpad=0.1,
-            title=constants.TAU_KCC2,
+            title=text.TAU_KCC2,
             title_fontsize="x-small",
         )
 
@@ -947,7 +946,7 @@ class Gve(MultiRunFigure):
                     cax=cax,
                     orientation="horizontal",
                 )
-            cbar.set_label(constants.G_GABA)
+            cbar.set_label(text.G_GABA)
             cbar.outline.set_visible(False)
         # ax.set_xscale("symlog")
 
@@ -960,42 +959,42 @@ class Gve(MultiRunFigure):
         if cmap is None:
             cmap = settings.COLOR.EGABA_SM.cmap
         if egabas is None:
-            egabas = self.df_g_E_bursts[constants.EGABA].unique()
+            egabas = self.df_g_E_bursts[text.EGABA].unique()
         elif isinstance(egabas, int):
             _egaba_values = np.arange(self.EGABA_0, self.EGABA_end, self.mv_step)
             egabas = _egaba_values[:: len(_egaba_values) // egabas]
 
         # bursts v G with EGABA
         wide_df = self.df_g_E_bursts.pivot_table(
-            index=constants.G_GABA,
-            columns=constants.EGABA,
+            index=text.G_GABA,
+            columns=text.EGABA,
             values=self.num_bursts_col,
             fill_value=0,
         )
         wide_df.index = wide_df.index.astype(int)
         wide_df.columns = wide_df.columns.astype(int)
         sns.lineplot(
-            x=constants.G_GABA,
+            x=text.G_GABA,
             y=self.num_bursts_col,
-            hue=constants.EGABA,
+            hue=text.EGABA,
             hue_order=egabas,
             hue_norm=norm,
             palette=cmap,
             data=wide_df.reset_index()
-            .melt(id_vars=constants.G_GABA, value_name=self.num_bursts_col)
-            .query(f"{constants.EGABA} in {egabas.tolist()}"),
+            .melt(id_vars=text.G_GABA, value_name=self.num_bursts_col)
+            .query(f"{text.EGABA} in {egabas.tolist()}"),
             ax=ax,
             legend=False,
         )
         # plot again for error bars (previous plot omits error bars but includes 0 values)
         sns.lineplot(
-            x=constants.G_GABA,
+            x=text.G_GABA,
             y=self.num_bursts_col,
-            hue=constants.EGABA,
+            hue=text.EGABA,
             hue_order=egabas,
             hue_norm=norm,
             palette=cmap,
-            data=self.df_g_E_bursts.query(f"{constants.EGABA} in {egabas.tolist()}"),
+            data=self.df_g_E_bursts.query(f"{text.EGABA} in {egabas.tolist()}"),
             ax=ax,
             legend=True,
             err_style="bars",
@@ -1003,7 +1002,7 @@ class Gve(MultiRunFigure):
         )
         if fig is not None:
             cbar = fig.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax)
-            cbar.set_label(f"{constants.EGABA} (mV)")
+            cbar.set_label(f"{text.EGABA} (mV)")
             cbar.outline.set_visible(False)
         # cbar.set_ticks(np.arange(self.EGABA_0, self.EGABA_end + self.mv_step, self.mv_step), minor=True)
         if self.gGABAsvEGABA[-1] > 100:
@@ -1012,8 +1011,8 @@ class Gve(MultiRunFigure):
     def plot_heatmap(
         self,
         static=False,
-        x=constants.G_GABA,
-        y=constants.EGABA,
+        x=text.G_GABA,
+        y=text.EGABA,
         c="Number of bursts\n(per 60 s)",
         agg="mean",
         cmap="viridis",
@@ -1058,9 +1057,7 @@ class Gve(MultiRunFigure):
             cmap=cmap,
             ax=ax,
             cbar_kws=dict(label=c),
-            norm=LogNorm()
-            if c == constants.TAU_KCC2 or c == constants.G_GABA
-            else None,
+            norm=LogNorm() if c == text.TAU_KCC2 or c == text.G_GABA else None,
             # vmin=0,
             mask=mask,
             **kwargs,
@@ -1086,14 +1083,14 @@ class Gve(MultiRunFigure):
         gs = axs_d[0, 1].get_gridspec()
         axs_d[0, 1].remove()
         axs_d[0, 1] = fig.add_subplot(gs[1])
-        log_tau = f"log {constants.TAU_KCC2}"
-        df_g_tau[log_tau] = np.log10(df_g_tau[constants.TAU_KCC2])
-        g_gabas = df_g_tau[constants.G_GABA].unique()
+        log_tau = f"log {text.TAU_KCC2}"
+        df_g_tau[log_tau] = np.log10(df_g_tau[text.TAU_KCC2])
+        g_gabas = df_g_tau[text.G_GABA].unique()
         palette = sns.color_palette(settings.COLOR.G_GABA_SM.get_cmap(), len(g_gabas))
         sns.lineplot(
             x=log_tau,
-            y=constants.EGABA,
-            hue=constants.G_GABA,
+            y=text.EGABA,
+            hue=text.G_GABA,
             palette=palette,
             marker=".",
             data=df_g_tau,
@@ -1111,14 +1108,14 @@ class Gve(MultiRunFigure):
             borderpad=0,
             frameon=False,
             fontsize="x-small",
-            title=constants.G_GABA,
+            title=text.G_GABA,
             title_fontsize="small",
         )
 
         sns.histplot(
             data=df_g_tau,
             x=log_tau,
-            hue=constants.G_GABA,
+            hue=text.G_GABA,
             palette=palette,
             ax=axs_d[0, 0],
             multiple="stack",
@@ -1128,8 +1125,8 @@ class Gve(MultiRunFigure):
         )
         sns.histplot(
             data=df_g_tau,
-            y=constants.EGABA,
-            hue=constants.G_GABA,
+            y=text.EGABA,
+            hue=text.G_GABA,
             palette=palette,
             ax=axs_d[1, 1],
             multiple="stack",
@@ -1138,14 +1135,14 @@ class Gve(MultiRunFigure):
             legend=False,
         )
         group_g = (
-            df_g_tau_bursts[[constants.G_GABA, num_bursts_col]]
-            .groupby(constants.G_GABA, as_index=False)
+            df_g_tau_bursts[[text.G_GABA, num_bursts_col]]
+            .groupby(text.G_GABA, as_index=False)
             .sum()
         )
         sns.scatterplot(
-            x=constants.G_GABA,
+            x=text.G_GABA,
             y=num_bursts_col,
-            hue=constants.G_GABA,
+            hue=text.G_GABA,
             palette=palette,
             data=group_g,
             ax=axs_d[0, 1],
@@ -1154,12 +1151,12 @@ class Gve(MultiRunFigure):
             legend=False,
         )
 
-        tau_KCC2_list = df_g_tau[constants.TAU_KCC2].unique()
+        tau_KCC2_list = df_g_tau[text.TAU_KCC2].unique()
         log_tau_KCC2_list = df_g_tau[log_tau].unique()
         axs_d[1, 0].set_xticks(log_tau_KCC2_list)
         axs_d[1, 0].set_xticks([], minor=True)
         axs_d[1, 0].set_xticklabels([f"{tau:.0f}" for tau in tau_KCC2_list])
-        axs_d[1, 0].set_xlabel(constants.TAU_KCC2)
+        axs_d[1, 0].set_xlabel(text.TAU_KCC2)
         # axs_d[0,0].set_xlim(log_tau_KCC2_list[0])
         sns.despine(ax=axs_d[0, 0], left=True)
         axs_d[0, 0].set_yticks([])
