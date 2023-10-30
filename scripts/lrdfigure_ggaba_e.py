@@ -58,8 +58,6 @@ class Gve(MultiRunFigure):
         self.df_g_tau = None
         self.df_g_tau_bursts = None
         self.num_bursts_col = None
-        self.sum_igaba = None
-        self.mean_igaba = None
 
     def run(
         self,
@@ -156,7 +154,8 @@ class Gve(MultiRunFigure):
         T = np.round(self.df.index.values[-1])
 
         bins = np.arange(0, T, self.time_per_value)
-        _t_offset = int(time_unit / ms)
+        mid_bin_idx = int(len(bins) / 2)
+        _t_offset = 1 * int(time_unit / ms)
 
         ###############
         # static EGABA
@@ -179,8 +178,7 @@ class Gve(MultiRunFigure):
                 instance_df = self.df[gGABA, run_idx]
             else:
                 instance_df = self.df[
-                    (self.dynamic["gGABA"] == gGABA)
-                    & (self.dynamic["run_idx"] == run_idx)
+                    (self.df["gGABA"] == gGABA) & (self.df["run_idx"] == run_idx)
                 ].to_pandas_df(["E_GABA_all", "I_GABA_all", "r_all"], index_name="Time")
 
             df_egaba = instance_df["E_GABA_all"]
@@ -242,22 +240,31 @@ class Gve(MultiRunFigure):
             gaba_kcc2_run, desc="Dynamic Cl", leave=False
         ):
             if isinstance(self.dynamic, pd.DataFrame):
-                instance_df = self.dynamic[gGABA, tau_KCC2, run_idx]
+                instance_df = self.dynamic[gGABA, tau_KCC2, run_idx].sort_index()
             else:
-                instance_df = self.dynamic[
-                    (self.dynamic[text.G_GABA] == gGABA)
-                    & (self.dynamic[text.TAU_KCC2] == tau_KCC2)
-                    & (self.dynamic["run_idx"] == run_idx)
-                ].to_pandas_df(["E_GABA_all", "I_GABA_all", "r_all"], index_name="Time")
+                instance_df = (
+                    self.dynamic[
+                        (self.dynamic[text.G_GABA] == gGABA)
+                        & (self.dynamic[text.TAU_KCC2] == tau_KCC2)
+                        & (self.dynamic["run_idx"] == run_idx)
+                    ]
+                    .to_pandas_df(
+                        ["E_GABA_all", "I_GABA_all", "r_all"], index_name="Time"
+                    )
+                    .sort_index()
+                )
 
             df_egaba = instance_df["E_GABA_all"]
             df_igaba = instance_df["I_GABA_all"]
             df_rates = instance_df["r_all"]
             burst_start_ts, burst_end_ts = burst_stats(
-                df_rates, rate_std_thresh=2, time_unit=time_unit, plot_fig=False
+                df_rates,
+                rate_std_thresh=2,
+                time_unit=time_unit,
+                plot_fig=False,
             )
-            # only consider last bin (once network has reached steady-state
-            burst_start_ts = burst_start_ts[burst_start_ts > self.time_per_value * 9]
+            # only consider once network has reached steady-state
+            burst_start_ts = burst_start_ts[burst_start_ts >= bins[mid_bin_idx]]
             logger.debug(
                 f"gGABA={gGABA}, tau_KCC2={tau_KCC2}, run_idx={run_idx} burst_start_ts={burst_start_ts}"
             )
@@ -367,10 +374,21 @@ class Gve(MultiRunFigure):
             format="table",
         )
 
-    def plot(self, timeit=True, egabas=None, num_bursts="mean", **kwargs):
+    def plot(
+        self, timeit=True, egabas=None, num_bursts="mean", i_metric=mean_igaba, **kwargs
+    ):
         super().plot(**kwargs)
         if self.df_g_E is None:
             self.process()
+        if i_metric == "sum":
+            i_metric = sum_igaba
+        elif i_metric == "mean":
+            i_metric = mean_igaba
+        assert i_metric in (
+            mean_igaba,
+            sum_igaba,
+        ), "i_metric must be 'mean' or 'sum'"
+
         logger.info("plotting")
         plot_time_start = time.time()
 
@@ -431,7 +449,12 @@ class Gve(MultiRunFigure):
         # cax = fig.add_subplot(gs[1, -1])
         igaba_ax = axes["i_gaba"]
         igaba_cax = axes["i_gaba_cax"]
-        self.plot_igaba(fig=fig, ax=igaba_ax, cax=igaba_cax, num_bursts=num_bursts)
+        self.plot_igaba(
+            fig=fig,
+            ax=igaba_ax,
+            cax=igaba_cax,
+            i_metric=i_metric,
+        )
 
         static_ax.set_title(
             text.STATIC_CHLORIDE_STR_ABBR,
@@ -610,6 +633,7 @@ class Gve(MultiRunFigure):
                 bursts_max_label = f">{bursts_max}"
             hue_norm = Normalize(1, bursts_max)
             size_norm = Normalize(1, bursts_max)
+
             sns.scatterplot(
                 y=text.TAU_KCC2,
                 x=text.G_GABA,
@@ -618,7 +642,7 @@ class Gve(MultiRunFigure):
                 size=self.num_bursts_col,
                 size_norm=size_norm,
                 sizes=sizes,
-                palette=settings.COLOR.NUM_BURSTS_CMAP,
+                palette=kwargs.get("cmap", settings.COLOR.NUM_BURSTS_CMAP),
                 #  alpha=0.8,
                 # set style so that legend has the right marker
                 style=self.num_bursts_col,
@@ -785,7 +809,6 @@ class Gve(MultiRunFigure):
         ax=None,
         cax=None,
         min_s=None,
-        num_bursts="mean",
         i_metric=sum_igaba,
     ):
         if min_s is None:
@@ -797,20 +820,19 @@ class Gve(MultiRunFigure):
             fig, ax = plt.subplots()
             self.figs.append(fig)
 
-        if i_metric == sum_igaba:
-            data = self.df_g_tau_bursts[
-                (self.df_g_tau_bursts[i_metric] < 1e6)
-                & (self.df_g_tau_bursts[i_metric] > -1e6)
-            ]
-        elif i_metric == mean_igaba:
-            data = self.df_g_tau_bursts[
-                (self.df_g_tau_bursts[i_metric] < 100)
-                & (self.df_g_tau_bursts[i_metric] > -100)
-            ]
-        else:
-            data = self.df_g_tau_bursts
+        data = self.df_g_tau_bursts
+        # if i_metric == mean_igaba:
+        #     data = data[(data[text.G_GABA] >= 40)]
+
         data2 = self.df_g_E_bursts
-        if len(self.seeds) > 1:
+        # calculate outliers
+        data["z score"] = stats.zscore(data[i_metric], nan_policy="omit")
+        data = data[data["z score"].abs() < 2]
+        data2["z score"] = stats.zscore(data2[i_metric], nan_policy="omit")
+        data2 = data2[data2["z score"].abs() < 2]
+
+        # calculate mean if there are multiple seeds
+        if len(self.seeds) > 10:
             data = (
                 data[
                     [
@@ -842,7 +864,6 @@ class Gve(MultiRunFigure):
         static_value = f"Static {text.CL}"
         data[text.ECL] = dynamic_value
         data2[text.ECL] = static_value
-
         data[text.TAU_KCC2] = data[text.TAU_KCC2].astype(int)
         # assign middle tau to static for sizing in graph
         all_taus = data[text.TAU_KCC2].unique()
@@ -858,9 +879,9 @@ class Gve(MultiRunFigure):
             data=data,
             ax=ax,
         )
-        r = stats.linregress(data[i_metric], data[self.num_bursts_col])
+        r = stats.linregress(data[i_metric], data[self.num_bursts_col])  # type: ignore
         ax.annotate(
-            f"$R^2$ = {r.rvalue ** 2:.2f} (p = {r.pvalue:.2g})",
+            f"$R^2$ = {r.rvalue ** 2:.2f} (p = {r.pvalue:.2g})",  # type: ignore
             xy=(1, 1),
             xytext=(-0, 15),
             fontsize="xx-small",
@@ -869,9 +890,7 @@ class Gve(MultiRunFigure):
             # arrowprops=dict(arrowstyle='-|>',connectionstyle="arc3, rad=-0.1")
         )
 
-        norm = G_GABA_Norm(
-            50, data[text.G_GABA].min(), data[text.G_GABA].max()
-        )
+        norm = G_GABA_Norm(50, data[text.G_GABA].min(), data[text.G_GABA].max())
 
         sns.scatterplot(
             x=i_metric,
@@ -888,6 +907,7 @@ class Gve(MultiRunFigure):
             data=combined_data,
             legend="full",
             # ec='None',
+            alpha=0.2,
             ax=ax,
             # clip_on=False
         ).legend(frameon=False, fontsize="x-small", loc=(1, 0))
@@ -1086,7 +1106,9 @@ class Gve(MultiRunFigure):
         log_tau = f"log {text.TAU_KCC2}"
         df_g_tau[log_tau] = np.log10(df_g_tau[text.TAU_KCC2])
         g_gabas = df_g_tau[text.G_GABA].unique()
-        palette = sns.color_palette(settings.COLOR.G_GABA_SM.get_cmap(), len(g_gabas))
+        palette = {
+            g_gaba: settings.COLOR.G_GABA_SM.to_rgba(g_gaba) for g_gaba in g_gabas
+        }
         sns.lineplot(
             x=log_tau,
             y=text.EGABA,
@@ -1137,7 +1159,7 @@ class Gve(MultiRunFigure):
         group_g = (
             df_g_tau_bursts[[text.G_GABA, num_bursts_col]]
             .groupby(text.G_GABA, as_index=False)
-            .sum()
+            .mean()
         )
         sns.scatterplot(
             x=text.G_GABA,
@@ -1165,7 +1187,7 @@ class Gve(MultiRunFigure):
         adjust_spines(axs_d[0, 1], ["bottom", "right"])
         sns.despine(ax=axs_d[0, 1], top=False, right=False)
         axs_d[0, 1].set_xticks(g_gabas, minor=True)
-        axs_d[0, 1].set_title("Total area", fontsize="small")
+        axs_d[0, 1].set_title("Mean area", fontsize="small")
         axs_d[0, 1].set_ylim(0)
 
 
@@ -1180,7 +1202,23 @@ if __name__ == "__main__":
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
 
     gve = Gve(
-        seeds=(None, 1234, 5678, 1426987, 86751, 1010, 876, 12576, 9681, 814265),
+        seeds=(
+            None,
+            1234,
+            5678,
+            1426987,
+            86751,
+            # 1010,
+            # 876,
+            # 12576,
+            # 9681,
+            # 814265,
+            16928,
+            98766,
+            876125,
+            127658,
+            9876,
+        ),
         gGABAsvEGABA=sorted(
             set(
                 np.append(
@@ -1189,7 +1227,14 @@ if __name__ == "__main__":
                 )
             )
         ),
-        gGABAs=np.geomspace(10, 1000, 11).round(0),
+        gGABAs=sorted(
+            set(
+                np.append(
+                    np.geomspace(10, 1000, 11).round(0),
+                    np.geomspace(60, 158, 7).round(0),
+                )
+            )
+        ),
         tau_KCC2s=tau_KCC2_list,
     )
     gve.run()

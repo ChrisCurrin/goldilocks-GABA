@@ -283,7 +283,7 @@ def single_run(
     # External stimuli
     rate_ext = 2 * Hz
     C_ext = 800
-
+    
     # Chloride dynamics
     E_Cl_end = (E_Cl_end or -60) * mV  # Final ECl to reach when stepping ECl
     num_ecl_steps = num_ecl_steps or 1  # Number of changes to ECl when manual cl.

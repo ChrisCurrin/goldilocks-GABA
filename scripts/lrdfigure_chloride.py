@@ -155,7 +155,7 @@ class Chloride(MultiRunFigure):
         self.df_egaba_long = df_egaba_long
         return self
 
-    def plot(self, default_tau=60, stripplot_alpha=0.5, **kwargs):
+    def plot(self, default_tau=60, stripplot_alpha=0.5, stripplot_size=3, stripplot_jitter=0.4, **kwargs):
         if self.df_num_bursts is None:
             self.process(**kwargs)
         df_bursts_long = self.df_bursts_long
@@ -400,7 +400,9 @@ class Chloride(MultiRunFigure):
             # hue="KCC2", palette=COLOR.TAU_PAL,
             linewidth=1,
             zorder=6,
+            size=stripplot_size,
             alpha=stripplot_alpha,
+            jitter=stripplot_jitter,
             data=df_vary_kcc2_bursts[df_vary_kcc2_bursts[self.num_bursts_col] > 0],
             ax=axes["vary kcc2 - bursts"],
         )
@@ -415,6 +417,7 @@ class Chloride(MultiRunFigure):
             showfliers=False,
             saturation=1,
             linewidth=1,
+            cut=0,
             data=df_vary_kcc2_egaba,
             ax=axes["vary kcc2 - egaba"],
         )
@@ -586,9 +589,11 @@ class Chloride(MultiRunFigure):
             dodge=True,
             edgecolor="w",
             linewidth=1,
+            size=stripplot_size,
             zorder=6,
             alpha=stripplot_alpha,
             legend=False,
+            jitter=stripplot_jitter,
             data=df_vary_ecl0_bursts[df_vary_ecl0_bursts[self.num_bursts_col] > 0],
             ax=axes["vary ecl0 - bursts"],
         )
@@ -727,7 +732,9 @@ class Chloride(MultiRunFigure):
             edgecolor="w",
             linewidth=1,
             zorder=6,
+            size=stripplot_size,
             alpha=stripplot_alpha,
+            jitter=stripplot_jitter,
             legend=False,
             data=df_vary_ggaba_bursts[df_vary_ggaba_bursts[self.num_bursts_col] > 0],
             ax=axes["vary ggaba - bursts"],
@@ -756,6 +763,7 @@ class Chloride(MultiRunFigure):
             linewidth=0.8,
             saturation=1,
             width=0.9,
+            cut=0,
             ax=axes["vary ggaba - egaba"],
         )
         # sns.stripplot(
@@ -807,6 +815,7 @@ class Chloride(MultiRunFigure):
                 linewidth=0.8,
                 saturation=1,
                 width=0.9,
+                cut=0,
                 ax=axes["vary ggaba - egaba - alt"],
             )
 

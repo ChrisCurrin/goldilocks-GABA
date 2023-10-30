@@ -134,12 +134,7 @@ class ChlorideLength(MultiRunFigure):
         lighten = np.linspace(0.05, 1.1, len(self.lengths))
 
         lighten_g = np.linspace(0.8, 1.2, len(self.g_GABAs))
-        cp = [
-            settings.COLOR.TAU_PAL_DICT[tau]
-            if tau in settings.COLOR.TAU_PAL_DICT
-            else settings.COLOR.TAU_SM.to_rgba(tau)
-            for tau in self.tau_KCC2s
-        ]
+        cp = [settings.COLOR.TAU_SM.to_rgba(tau) for tau in self.tau_KCC2s]
         cs = [lighten_color(c, light) for c in cp for light in lighten_g]
         cs_arr = np.array(cs).reshape(len(self.tau_KCC2s), len(self.g_GABAs), 3)
 
@@ -255,7 +250,7 @@ class ChlorideLength(MultiRunFigure):
                     d[f"{tau_KCC2}"] = egaba
                     if len_idx == 0:
                         ax_gaba.annotate(
-                            f"{tau_KCC2:>4.0f}",
+                            f"{tau_KCC2:>4.1f}",
                             xy=(T, egaba[-1]),
                             xytext=(2, 0),
                             textcoords="offset points",
@@ -337,7 +332,7 @@ class ChlorideLength(MultiRunFigure):
 
                 adjust_spines(ax_r, [], 0)
 
-                ax_r.grid(True, "major", "x", zorder=-len(self.tau_KCC2s) * 10)
+                # ax_r.grid(True, "major", "x", zorder=-99, linestyle='--')
                 if not colorbar:
                     # plot example EGABAs
                     variables = list(d.keys())
@@ -375,7 +370,7 @@ class ChlorideLength(MultiRunFigure):
                     ax_gaba.set_yticks(yticks, minor=True)
                     ax_gaba.set_yticks(yticks[1::2])
                     ax_gaba.set_yticklabels(yticks[1::2])
-                    ax_gaba.grid(True, "both", "both", zorder=-99)
+                    # ax_gaba.grid(True, "major", "both", zorder=-99, linestyle='--')
 
                 if len_idx == 0:
                     # scale bar
@@ -411,7 +406,7 @@ class ChlorideLength(MultiRunFigure):
                     ax_r.set_yticks([])
                     ax_r.set_ylabel("population\nrate (Hz)")
                     ax_r.xaxis.set_ticks_position("none")  # remove ticks
-                    ax_r.grid(True, "major", "x")
+                    # ax_r.grid(True, "major", "x", linestyle='--')
                     adjust_spines(ax_r, [], 0, sharedx=True, sharedy=True)
                     ax_gaba.set_ylabel(f"{text.EGABA}\n(mV)")
                     c = lighten_color(settings.COLOR.K, lighten_g[self_g_i])
@@ -546,10 +541,10 @@ class ChlorideLength(MultiRunFigure):
             minor_y_ticks_egaba = np.arange(yticks[0], yticks[-1], y_gap / 2).round(2)
             axs[-2, len_idx].set_yticks(minor_y_ticks_egaba, minor=True)
 
-            axs[-1, len_idx].grid(True, axis="y", which="both", alpha=0.4, zorder=-99)
-            axs[-2, len_idx].grid(True, axis="y", which="both", alpha=0.4, zorder=-99)
-            axs[-1, len_idx].grid(True, axis="x", which="minor", alpha=0.4, zorder=-99)
-            axs[-2, len_idx].grid(True, axis="x", which="minor", alpha=0.4, zorder=-99)
+            # axs[-1, len_idx].grid(True, axis="y", which="both", alpha=0.4, zorder=-99, linestyle='--')
+            # axs[-2, len_idx].grid(True, axis="y", which="both", alpha=0.4, zorder=-99, linestyle='--')
+            axs[-1, len_idx].grid(True, axis="x", which="minor", alpha=0.4, zorder=-99, linestyle='--')
+            axs[-2, len_idx].grid(True, axis="x", which="minor", alpha=0.4, zorder=-99, linestyle='--')
             # axs[-1, len_idx].set_xlim(-shift, len(bins) - 1 - shift)
             if len_idx == 0:
                 axs[-1, len_idx].legend().remove()
@@ -580,12 +575,12 @@ class ChlorideLength(MultiRunFigure):
             ax_i.set_xlim([0, T])
             ax_i.set_xticks(np.arange(0, T + bin_size, bin_size))
             ax_i.set_xticklabels([])
-            ax_i.grid(True, "major", "x", zorder=-99)
+            # ax_i.grid(True, "major", "x", zorder=-99, linestyle='--')
             ax_i.tick_params(axis="x", bottom=False)
 
         for ax_i in flatten(axs[-2:, :]):
             ax_i.set_xlabel(text.TAU_KCC2)
-            # ax_i.grid(True, "major", "both")
+            # ax_i.grid(True, "major", "both", zorder=-99, linestyle='--')
             ax_i.tick_params(axis="x", which="minor", bottom=False)
 
         for _ax in axs[:, 0]:
@@ -627,7 +622,12 @@ if __name__ == "__main__":
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
+    # above ratio slightly off but results already cached.
+    ratio = np.sqrt(2)
+    tau_KCC2_list = tau_KCC2_list + [np.round(tau_KCC2_list[-1] * ratio, 1)]
+    tau_KCC2_list = tau_KCC2_list + [np.round(tau_KCC2_list[-1] * ratio, 1)]
 
+    print(ratio, tau_KCC2_list[::2])
     cl_length = ChlorideLength(
         tau_KCC2s=tau_KCC2_list[::2],
         g_GABAs=(50, 25, 100),

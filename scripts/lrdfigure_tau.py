@@ -807,7 +807,6 @@ class Tau(MultiRunFigure):
         self.fig, self.axs = fig, axes
         letter_axes(
             *axes.values(),
-            
         )
         ##############################
         # TRACE AXES
@@ -910,6 +909,7 @@ class Tau(MultiRunFigure):
             hue_order=[default_tau_i],
             # palette=[COLOR.TAU_SM.to_rgba(default_tau_i)],
             palette=[COLOR.K],
+            alpha=0.5,
             ax=axes["pc"],
             # zorder=5,  # only single bar (top)
             errorbar="se",
@@ -923,6 +923,7 @@ class Tau(MultiRunFigure):
             hue_order=[default_tau_e],
             # palette=[COLOR.TAU_SM.to_rgba(default_tau_e)],
             palette=[COLOR.K],
+            alpha=0.5,
             ax=axes["in"],
             # zorder=5,
             errorbar="se",
@@ -949,7 +950,9 @@ class Tau(MultiRunFigure):
             palette=COLOR.G_GABA_PAL_DICT,
             ax=axes["pc"],
             errorbar="se",
-            # markers="None",
+            # err_style="bars",
+            marker=".",
+            zorder=5,
             # legend=False,
         )
         sns.lineplot(
@@ -962,7 +965,9 @@ class Tau(MultiRunFigure):
             palette=COLOR.G_GABA_PAL_DICT,
             ax=axes["in"],
             errorbar="se",
-            # markers="None",
+            # err_style="bars",
+            marker=".",
+            zorder=5,
         )
 
         # remove legend
@@ -980,16 +985,12 @@ class Tau(MultiRunFigure):
                 np.arange(0, len(tau_KCC2_I_list), 2), labels=tau_KCC2_I_list[::2]
             )
 
-        # log scale (only if lineplot)
-        # axes["pc"].set_xscale("log")
-        # axes["in"].set_xscale("log")
-        # axes["pc"].set_xticks(tau_KCC2_E_list, labels=tau_KCC2_E_list)
-        # axes["in"].set_xticks(tau_KCC2_I_list, labels=tau_KCC2_I_list)
-
         # share y axis
         max_ylim = max(axes["pc"].get_ylim()[1], axes["in"].get_ylim()[1])
         axes["pc"].set_ylim(0, max_ylim)
         axes["in"].set_ylim(0, max_ylim)
+        axes["pc"].set_yticks(np.arange(max_ylim), minor=True)
+        axes["in"].set_yticks(np.arange(max_ylim), minor=True)
 
         ##############################
         # HEATMAP AXES
@@ -1019,7 +1020,7 @@ class Tau(MultiRunFigure):
         hm_kwargs = dict(
             ax=axes["heatmap"],
             cbar_kws={"label": self.num_bursts_col},
-            cmap=COLOR.NUM_BURSTS_CMAP,
+            cmap=kwargs.get("cmap", COLOR.NUM_BURSTS_CMAP),
             # mask=square_df == 0,
             annot=False,
             fmt=".1f",
@@ -1034,6 +1035,18 @@ class Tau(MultiRunFigure):
             **hm_kwargs,
         )
         axes["heatmap"].set_facecolor(opacity(0.1, "#c7a1c8"))
+        axes["heatmap"].set_xticklabels(axes["heatmap"].get_xticklabels(), rotation=0)
+        axes["heatmap"].set_yticks(np.arange(len(tau_KCC2_I_list)) + 0.5, minor=True)
+        axes["heatmap"].set_yticklabels(axes["heatmap"].get_yticklabels(), rotation=0)
+
+        axes["heatmap"].set(
+            xlabel=f"{text.TAU_KCC2_E} (s)", ylabel=f"{text.TAU_KCC2_I} (s)"
+        )
+
+        # yticks minor for colorbar
+        cbar = axes["heatmap"].collections[0].colorbar
+        cbar_ax: plt.Axes = cbar.ax
+        cbar_ax.set_yticks(np.arange(max_ylim))
 
         ##############################
         # G_GABA AXES
@@ -1063,6 +1076,7 @@ class Tau(MultiRunFigure):
             palette=g_gaba_pal,
             errorbar="se",
             ax=axes["pc - ggaba"],
+            marker=".",
         )
 
         renamed_col = f"{self.num_bursts_col}\n[mean of {text.TAU_KCC2_E}]"
@@ -1084,6 +1098,7 @@ class Tau(MultiRunFigure):
             palette=g_gaba_pal,
             errorbar="se",
             ax=axes["in - ggaba"],
+            marker=".",
         )
 
         # log scale
@@ -1113,6 +1128,10 @@ class Tau(MultiRunFigure):
         )
         axes["pc - ggaba"].set_ylim(0, max_ylim)
         axes["in - ggaba"].set_ylim(0, max_ylim)
+
+        # ytick minor
+        axes["pc - ggaba"].set_yticks(np.arange(max_ylim), minor=True)
+        axes["in - ggaba"].set_yticks(np.arange(max_ylim), minor=True)
 
         # remove legend from in
         axes["in - ggaba"].get_legend().remove()

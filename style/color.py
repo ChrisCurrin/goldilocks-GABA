@@ -225,12 +225,22 @@ class COLOR:
     # )
     # TAU_PAL = sns.color_palette([K]*len(TAU_KCC2_LIST), n_colors=len(TAU_KCC2_LIST))
     # TAU_PAL = sns.dark_palette(K, n_colors=len(TAU_KCC2_LIST))
-    TAU_PAL = sns.dark_palette(ECL, n_colors=len(TAU_KCC2_LIST) + 2, reverse=True)[
-        : len(TAU_KCC2_LIST)
-    ]
+    # TAU_PAL = sns.diverging_palette(145, 300, s=60, as_cmap=True)
+    TAU_PAL = sns.blend_palette(
+        [
+            blend("#FFFFFF", ECL, 0.1).hexcode,
+            ECL,
+            blend("#AA57B6", ECL, 0.2).hexcode,
+            "#AA57B6",
+        ],
+        n_colors=len(TAU_KCC2_LIST),
+    )
+    # sns.dark_palette(ECL, n_colors=len(TAU_KCC2_LIST) + 2, reverse=True)[
+    #     : len(TAU_KCC2_LIST)
+    # ]
     TAU_PAL_DICT = dict(zip(TAU_KCC2_LIST, TAU_PAL))
     TAU_SM = ScalarMappable(
-        norm=LogNorm(min(TAU_KCC2_LIST), max(TAU_KCC2_LIST)),
+        norm=G_GABA_Norm(60, 1, max(TAU_KCC2_LIST)),
         cmap=LinearSegmentedColormap.from_list("TAU_cm", TAU_PAL),
     )
 
@@ -259,10 +269,10 @@ class COLOR:
 
     NUM_BURSTS_COLOR = "#000000"
     NUM_BURSTS_CMAP = sns.color_palette(
-        "Greys", as_cmap=True
+        "viridis", as_cmap=True
     )  # sns.blend_palette(["#FFE8F1", "#F00A80"], as_cmap=True)
     NUM_BURSTS_PALETTE = sns.color_palette(
-        "Greys", 8
+        "viridis", 8
     )  # sns.blend_palette(["#FFE8F1", "#F00A80"], 8, as_cmap=False)
 
     blend = staticmethod(blend)

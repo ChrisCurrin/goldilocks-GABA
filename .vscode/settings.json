@@ -19,7 +19,9 @@
     "statusBarItem.remoteBackground": "#98fb98",
     "statusBarItem.remoteForeground": "#15202b",
     "statusBar.debuggingBackground": "#fb98fb",
-    "statusBar.debuggingForeground": "#15202b"
+    "statusBar.debuggingForeground": "#15202b",
+    "statusBar.border": "#98fb98",
+    "statusBar.debuggingBorder": "#fb98fb"
   },
   "peacock.color": "#007fff",
   "peacock.remoteColor": "#98fb98"
