@@ -1088,7 +1088,7 @@ def plot_state_average(
         enumerate(variables),
         desc="Plotting state average",
         # disable=logging.getLogger().getEffectiveLevel() > logging.INFO,
-        leave=True,
+        leave=False,
     ):
         view = getattr(state_mon, variable)
         if idxs is not None:
@@ -1120,7 +1120,7 @@ def plot_state_average(
         )
     if not only_mean and getattr(state_mon, variables[0]).shape[0] > 1:
         with tqdm(
-            len(variables),
+            total=len(variables),
             desc="Plotting state",
             disable=logging.getLogger().getEffectiveLevel() > logging.INFO,
             leave=False,

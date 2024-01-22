@@ -1,6 +1,7 @@
 import time
 from typing import Iterable
 from matplotlib import patheffects
+from matplotlib.ticker import MaxNLocator
 
 import numpy as np
 import pandas as pd
@@ -355,17 +356,7 @@ class Explain(LRDFigure):
                     xytext=(burst_x[-1], burst_y[0]),
                     arrowprops=dict(arrowstyle="<|-|>", lw=1, color="k", alpha=1),
                 )
-
-        if len(xlim_samples):
-            ax_inset: Axes
-            from matplotlib.ticker import MaxNLocator
-
-            for ax_inset, idx in zip(ax_insets, idxs):
-                start, end = periods["burst"][idx]
-                ax_inset.axhline(
-                    y=5, xmin=start, xmax=end, lw=1, color="k", ls="-", clip_on=False
-                )
-                ax_inset.yaxis.set_major_locator(MaxNLocator(5))
+                ax_inset_pop.yaxis.set_major_locator(MaxNLocator(5))
 
         only_mean = True
         plot_conductances(
@@ -376,7 +367,7 @@ class Explain(LRDFigure):
             time_unit=time_unit,
             lw=0.1,
         )
-        ax_con.legend().remove()
+        ax_con.get_legend().remove()
         ax_insets += plot_conductance_zooms(
             ax_con,
             xlim_samples,

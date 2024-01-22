@@ -60,7 +60,11 @@ class LRDFigure(object):
             self._internalise_objects()
             self.results = self.__dict__
             return self
-        network, results = sim.single_run(**kwargs)
+        # capture warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            logging.getLogger("brian2.monitors.statemonitor.cannot_check_statemonitor_indices").setLevel("ERROR")
+            network, results = sim.single_run(**kwargs)
         self._internalise_objects(results)
         self.results = results
         if cache:
