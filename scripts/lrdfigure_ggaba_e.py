@@ -68,7 +68,7 @@ class Gve(MultiRunFigure):
         mv_step=2,
         **kwargs,
     ):
-        logger.info(f"PART 1\n{'*'*20}")
+        logger.info(f"PART 1 - static Chloride\n{'*'*20}")
         self.time_per_value = time_per_value
         self.EGABA_0 = EGABA_0
         self.EGABA_end = EGABA_end
@@ -100,7 +100,7 @@ class Gve(MultiRunFigure):
 
         self.df_main, self.df = self.df, None
 
-        logger.info(f"PART 2 \n{'*'*20}")
+        logger.info(f"PART 2 - dynamic Chloride\n{'*'*20}")
 
         kwargs["E_Cl_0"] = ecl_0 / 2 + ecl_end / 2  # start at mid-point between the 2
 
@@ -124,6 +124,17 @@ class Gve(MultiRunFigure):
         return self
 
     def process(self):
+        """
+        Process the data and store the results in the cache folder. No parameters and no return type specified.
+
+        Makes available to the instance:
+        - self.df_g_E - DataFrame of g_GABA, E_GABA, total I_GABA, and burst start time for each seed and each burst
+        - self.df_g_E_bursts - DataFrame of g_GABA, E_GABA, and number of bursts for each seed
+        - self.df_g_tau - DataFrame of g_GABA, tau_KCC2, E_GABA (recorded), total I_GABA before each burst,
+            and burst start time for each seed and each burst
+        - self.df_g_tau_bursts - DataFrame of g_GABA, tau_KCC2, E_GABA (recorded), I_GABA (mean and sum),
+            and number of bursts for each seed
+        """
         import os
 
         self.sum_igaba = sum_igaba
@@ -375,8 +386,25 @@ class Gve(MultiRunFigure):
         )
 
     def plot(
-        self, timeit=True, egabas=None, num_bursts="mean", i_metric=mean_igaba, **kwargs
+        self, timeit=True, egabas=None, num_bursts="mean", i_metric="diagram", **kwargs
     ):
+        """
+        Plot the figure.
+
+        :param timeit: Whether to measure the time it takes to plot the data. Default is True.
+        :param egabas: A list of GABA conductance values. Default is None (all GABA conductance values in init).
+        :param num_bursts: How to consider the number of bursts. Can be "mean" or "sum. Default is "mean".
+        :param i_metric: The metric to use for the GABA current calculation. Can be "mean" or "sum" or "diagram".
+            Default is mean_igaba constant (defined at top of file). This is deprecated and "diagram" is used instead
+            to leave open space for a diagram.
+        :param kwargs: Additional keyword arguments to pass to the super().plot() method.
+        :return: The updated instance of the class.
+
+        :note: If you want to plot the data, you must call process() first.
+        :note: i_metric is deprecated as it doesn't make sense to regress over GABA current for the number of bursts
+            because GABA current is dependent on the number of bursts (even for mean_igaba as it is defined in process()).
+
+        """
         super().plot(**kwargs)
         if self.df_g_E is None:
             self.process()
@@ -387,7 +415,8 @@ class Gve(MultiRunFigure):
         assert i_metric in (
             mean_igaba,
             sum_igaba,
-        ), "i_metric must be 'mean' or 'sum'"
+            "diagram",
+        ), "i_metric must be 'mean' or 'sum' or 'diagram'"
 
         logger.info("plotting")
         plot_time_start = time.time()
@@ -445,16 +474,27 @@ class Gve(MultiRunFigure):
         static_ax.axvline(50, zorder=1, **vline_kwargs)
         tau_ax.axvline(50, zorder=1, **vline_kwargs)
 
-        # igaba_ax = fig.add_subplot(gs[1, -2])
-        # cax = fig.add_subplot(gs[1, -1])
         igaba_ax = axes["i_gaba"]
         igaba_cax = axes["i_gaba_cax"]
-        self.plot_igaba(
-            fig=fig,
-            ax=igaba_ax,
-            cax=igaba_cax,
-            i_metric=i_metric,
-        )
+        if i_metric in {sum_igaba, mean_igaba}:
+            self.plot_igaba(
+                fig=fig,
+                ax=igaba_ax,
+                cax=igaba_cax,
+                i_metric=i_metric,
+            )
+        else:
+            # leave open space for a diagram but include colorbar
+            cbar = fig.colorbar(
+                ScalarMappable(
+                    cmap=settings.COLOR.G_GABA_SM.get_cmap(),
+                    norm=settings.COLOR.G_GABA_SM.norm,
+                ),
+                cax=igaba_cax,
+                orientation="horizontal",
+            )
+            cbar.set_label(text.G_GABA)
+            cbar.outline.set_visible(False)
 
         static_ax.set_title(
             text.STATIC_CHLORIDE_STR_ABBR,
@@ -613,9 +653,9 @@ class Gve(MultiRunFigure):
             max_bursts_per_g_gaba_tau_kcc2 = self.df_g_tau_bursts.groupby(
                 [text.G_GABA, text.TAU_KCC2], as_index=False
             ).max(numeric_only=True)
-            mean_bursts_per_g_gaba_tau_kcc2[
-                self.num_bursts_col
-            ] = mean_bursts_per_g_gaba_tau_kcc2[self.num_bursts_col].round(1)
+            mean_bursts_per_g_gaba_tau_kcc2[self.num_bursts_col] = (
+                mean_bursts_per_g_gaba_tau_kcc2[self.num_bursts_col].round(1)
+            )
             if num_bursts == "max":
                 data = max_bursts_per_g_gaba_tau_kcc2
             elif num_bursts == "mean":
@@ -1196,6 +1236,8 @@ if __name__ == "__main__":
     tau_KCC2_list = settings.TAU_KCC2_LIST
 
     ratio = tau_KCC2_list[1] / tau_KCC2_list[0]
+    # above ratio slightly off but results already cached.
+    # ratio = np.sqrt(2)
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
@@ -1208,17 +1250,17 @@ if __name__ == "__main__":
             5678,
             1426987,
             86751,
-            # 1010,
-            # 876,
-            # 12576,
-            # 9681,
-            # 814265,
             16928,
             98766,
             876125,
             127658,
             9876,
-        ),
+            1010,
+            876,
+            12576,
+            9681,
+            814265,
+        )[:10],
         gGABAsvEGABA=sorted(
             set(
                 np.append(
@@ -1227,14 +1269,7 @@ if __name__ == "__main__":
                 )
             )
         ),
-        gGABAs=sorted(
-            set(
-                np.append(
-                    np.geomspace(10, 1000, 11).round(0),
-                    np.geomspace(60, 158, 7).round(0),
-                )
-            )
-        ),
+        gGABAs=np.geomspace(10, 1000, 11).round(0),
         tau_KCC2s=tau_KCC2_list,
     )
     gve.run()

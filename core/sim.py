@@ -277,8 +277,8 @@ def single_run(
     )  # Reversal potential for GABAA (Ohmic formulation using Cl and HCO3
     #  permeabilities)
     logger.debug("EGABA = {:.2f}".format(E_GABA_0 / mV))
-    tau_KCC2_E = (tau_KCC2_E or 50) * second
-    tau_KCC2_I = (tau_KCC2_I or 50) * second
+    tau_KCC2_E = (tau_KCC2_E or 60) * second
+    tau_KCC2_I = (tau_KCC2_I or 60) * second
 
     # External stimuli
     rate_ext = 2 * Hz

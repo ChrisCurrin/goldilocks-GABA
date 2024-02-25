@@ -55,8 +55,8 @@ class Tau(MultiRunFigure):
             **kwargs,
         )
 
-        self.tau_KCC2_E_list = tau_KCC2_E_list
-        self.tau_KCC2_I_list = tau_KCC2_I_list
+        self.tau_KCC2_E_list = list(tau_KCC2_E_list)
+        self.tau_KCC2_I_list = list(tau_KCC2_I_list)
         self.tau_KCC2_list = sorted(
             list(itertools.product(tau_KCC2_E_list, tau_KCC2_I_list))
         )
@@ -117,9 +117,9 @@ class Tau(MultiRunFigure):
             f"{i*burst_window/time_unit:.0f}-{(i + 1)*burst_window/time_unit:.0f}"
             for i in range(round(T * time_unit / burst_window))
         ]
-        self.num_bursts_col = (
-            num_bursts_col
-        ) = f"Number of bursts\n(per {bin_size:.0f} s)"
+        self.num_bursts_col = num_bursts_col = (
+            f"Number of bursts\n(per {bin_size:.0f} s)"
+        )
         df_bursts_long = pd.DataFrame(
             columns=[
                 "run_idx",
@@ -752,14 +752,14 @@ class Tau(MultiRunFigure):
     def plot(
         self,
         timeit=True,
-        burst_window=120 * second,
+        burst_window=60 * second,
         default_tau_i=60,
         default_tau_e=60,
         default_ggaba=50,
         plot_ggaba=(25, 50, 100, 200),
         with_corner_traces=False,
         run_idx=0,
-        use_mean=True,
+        use_mean=False,
         square_heatmap=False,
         all_major_ticks=False,
         **kwargs,
@@ -788,7 +788,7 @@ class Tau(MultiRunFigure):
         # row 3: heatmap of num bursts vs KCC2_E and KCC2_I
         # row 4: num bursts vs g_GABA (for PC and IN)
         ##############################
-        fig, axes = plt.subplot_mosaic(
+        fig, axs = plt.subplot_mosaic(
             [
                 ["trace_ax", "trace_ax"],
                 ["pc", "in"],
@@ -804,9 +804,9 @@ class Tau(MultiRunFigure):
                 top=0.99,
             ),
         )
-        self.fig, self.axs = fig, axes
+        self.fig, self.axs = fig, axs
         letter_axes(
-            *axes.values(),
+            *axs.values(),
         )
         ##############################
         # TRACE AXES
@@ -821,12 +821,12 @@ class Tau(MultiRunFigure):
         prev_tau_i = tau_KCC2_I_list[tau_KCC2_I_list.index(default_tau_i) - 1]
 
         gs_traces = GridSpecFromSubplotSpec(
-            3, 3, subplot_spec=axes["trace_ax"], wspace=0, hspace=0
+            3, 3, subplot_spec=axs["trace_ax"], wspace=0, hspace=0
         )
         # axes["trace_ax"].remove()
         x_col = [prev_tau_e, default_tau_e, next_tau_e]
         y_col = [prev_tau_i, default_tau_i, next_tau_i]
-        axes["trace_ax"].set(
+        axs["trace_ax"].set(
             xticks=np.arange(0.5, len(x_col), 1),
             xticklabels=x_col,
             xlim=(0, len(x_col)),
@@ -837,10 +837,18 @@ class Tau(MultiRunFigure):
             ylabel=text.TAU_KCC2_I + " (s)",
         )
 
-        sns.despine(ax=axes["trace_ax"], left=True, bottom=True)
+        sns.despine(ax=axs["trace_ax"], left=True, bottom=True)
 
         df_r_all: pd.DataFrame = self.df[default_ggaba].xs("r_all", axis=1, level="var")
-        baseline_rate = df_r_all.loc[:, (default_tau_e, default_tau_i, run_idx)]
+        try:
+            baseline_rate = df_r_all.loc[:, (default_tau_e, default_tau_i, run_idx)]
+        except KeyError as err:
+            logger.error(err)
+            # check which column by logging unique values for each
+            for col in df_r_all.columns:
+                unique_values = df_r_all[col].unique()
+                logger.error(f"Unique values for {col}:\n{unique_values}")
+
         next_tau_e_rate = df_r_all.loc[:, (next_tau_e, default_tau_i, run_idx)]
         next_tau_i_rate = df_r_all.loc[:, (default_tau_e, next_tau_i, run_idx)]
         prev_tau_e_rate = df_r_all.loc[:, (prev_tau_e, default_tau_i, run_idx)]
@@ -910,7 +918,7 @@ class Tau(MultiRunFigure):
             # palette=[COLOR.TAU_SM.to_rgba(default_tau_i)],
             palette=[COLOR.K],
             alpha=0.5,
-            ax=axes["pc"],
+            ax=axs["pc"],
             # zorder=5,  # only single bar (top)
             errorbar="se",
         )
@@ -924,7 +932,7 @@ class Tau(MultiRunFigure):
             # palette=[COLOR.TAU_SM.to_rgba(default_tau_e)],
             palette=[COLOR.K],
             alpha=0.5,
-            ax=axes["in"],
+            ax=axs["in"],
             # zorder=5,
             errorbar="se",
         )
@@ -948,7 +956,7 @@ class Tau(MultiRunFigure):
             y=self.num_bursts_col,
             hue=G_GABA,
             palette=COLOR.G_GABA_PAL_DICT,
-            ax=axes["pc"],
+            ax=axs["pc"],
             errorbar="se",
             # err_style="bars",
             marker=".",
@@ -963,7 +971,7 @@ class Tau(MultiRunFigure):
             y=self.num_bursts_col,
             hue=G_GABA,
             palette=COLOR.G_GABA_PAL_DICT,
-            ax=axes["in"],
+            ax=axs["in"],
             errorbar="se",
             # err_style="bars",
             marker=".",
@@ -971,26 +979,26 @@ class Tau(MultiRunFigure):
         )
 
         # remove legend
-        axes["pc"].get_legend().remove()
-        axes["in"].get_legend().remove()
+        axs["pc"].get_legend().remove()
+        axs["in"].get_legend().remove()
 
         if not all_major_ticks:
             # make every second xaxis tick minor
-            axes["pc"].set_xticks(np.arange(0, len(tau_KCC2_E_list)), minor=True)
-            axes["pc"].set_xticks(
+            axs["pc"].set_xticks(np.arange(0, len(tau_KCC2_E_list)), minor=True)
+            axs["pc"].set_xticks(
                 np.arange(0, len(tau_KCC2_E_list), 2), labels=tau_KCC2_E_list[::2]
             )
-            axes["in"].set_xticks(np.arange(0, len(tau_KCC2_I_list)), minor=True)
-            axes["in"].set_xticks(
+            axs["in"].set_xticks(np.arange(0, len(tau_KCC2_I_list)), minor=True)
+            axs["in"].set_xticks(
                 np.arange(0, len(tau_KCC2_I_list), 2), labels=tau_KCC2_I_list[::2]
             )
 
         # share y axis
-        max_ylim = max(axes["pc"].get_ylim()[1], axes["in"].get_ylim()[1])
-        axes["pc"].set_ylim(0, max_ylim)
-        axes["in"].set_ylim(0, max_ylim)
-        axes["pc"].set_yticks(np.arange(max_ylim), minor=True)
-        axes["in"].set_yticks(np.arange(max_ylim), minor=True)
+        max_ylim = max(axs["pc"].get_ylim()[1], axs["in"].get_ylim()[1])
+        axs["pc"].set_ylim(0, max_ylim)
+        axs["in"].set_ylim(0, max_ylim)
+        axs["pc"].set_yticks(np.arange(max_ylim), minor=True)
+        axs["in"].set_yticks(np.arange(max_ylim), minor=True)
 
         ##############################
         # HEATMAP AXES
@@ -1018,7 +1026,7 @@ class Tau(MultiRunFigure):
         )[::-1]
 
         hm_kwargs = dict(
-            ax=axes["heatmap"],
+            ax=axs["heatmap"],
             cbar_kws={"label": self.num_bursts_col},
             cmap=kwargs.get("cmap", COLOR.NUM_BURSTS_CMAP),
             # mask=square_df == 0,
@@ -1034,17 +1042,17 @@ class Tau(MultiRunFigure):
             square_df,
             **hm_kwargs,
         )
-        axes["heatmap"].set_facecolor(opacity(0.1, "#c7a1c8"))
-        axes["heatmap"].set_xticklabels(axes["heatmap"].get_xticklabels(), rotation=0)
-        axes["heatmap"].set_yticks(np.arange(len(tau_KCC2_I_list)) + 0.5, minor=True)
-        axes["heatmap"].set_yticklabels(axes["heatmap"].get_yticklabels(), rotation=0)
+        axs["heatmap"].set_facecolor(opacity(0.1, "#c7a1c8"))
+        axs["heatmap"].set_xticklabels(axs["heatmap"].get_xticklabels(), rotation=0)
+        axs["heatmap"].set_yticks(np.arange(len(tau_KCC2_I_list)) + 0.5, minor=True)
+        axs["heatmap"].set_yticklabels(axs["heatmap"].get_yticklabels(), rotation=0)
 
-        axes["heatmap"].set(
+        axs["heatmap"].set(
             xlabel=f"{text.TAU_KCC2_E} (s)", ylabel=f"{text.TAU_KCC2_I} (s)"
         )
 
         # yticks minor for colorbar
-        cbar = axes["heatmap"].collections[0].colorbar
+        cbar = axs["heatmap"].collections[0].colorbar
         cbar_ax: plt.Axes = cbar.ax
         cbar_ax.set_yticks(np.arange(max_ylim))
 
@@ -1068,14 +1076,18 @@ class Tau(MultiRunFigure):
             .rename(columns={self.num_bursts_col: renamed_col})
         )
         sns.lineplot(
-            data=data if use_mean else df_num_bursts,
+            data=(
+                data
+                if use_mean
+                else df_num_bursts[df_num_bursts[TAU_I_S] == default_tau_i]
+            ),
             x=TAU_E_S,
             y=renamed_col if use_mean else self.num_bursts_col,
             hue=G_GABA,
             hue_order=plot_ggaba,
             palette=g_gaba_pal,
             errorbar="se",
-            ax=axes["pc - ggaba"],
+            ax=axs["pc - ggaba"],
             marker=".",
         )
 
@@ -1090,54 +1102,56 @@ class Tau(MultiRunFigure):
         )
 
         sns.lineplot(
-            data=data if use_mean else df_num_bursts,
+            data=(
+                data
+                if use_mean
+                else df_num_bursts[df_num_bursts[TAU_E_S] == default_tau_e]
+            ),
             x=TAU_I_S,
             y=renamed_col if use_mean else self.num_bursts_col,
             hue=G_GABA,
             hue_order=plot_ggaba,
             palette=g_gaba_pal,
             errorbar="se",
-            ax=axes["in - ggaba"],
+            ax=axs["in - ggaba"],
             marker=".",
         )
 
         # log scale
-        axes["pc - ggaba"].set_xscale("log")
-        axes["in - ggaba"].set_xscale("log")
+        axs["pc - ggaba"].set_xscale("log")
+        axs["in - ggaba"].set_xscale("log")
 
         # remove minor ticks from log by default
-        axes["pc - ggaba"].set_xticks([], minor=True)
-        axes["in - ggaba"].set_xticks([], minor=True)
+        axs["pc - ggaba"].set_xticks([], minor=True)
+        axs["in - ggaba"].set_xticks([], minor=True)
 
         if all_major_ticks:
-            axes["pc - ggaba"].set_xticks(tau_KCC2_E_list, labels=tau_KCC2_E_list)
-            axes["in - ggaba"].set_xticks(tau_KCC2_I_list, labels=tau_KCC2_I_list)
+            axs["pc - ggaba"].set_xticks(tau_KCC2_E_list, labels=tau_KCC2_E_list)
+            axs["in - ggaba"].set_xticks(tau_KCC2_I_list, labels=tau_KCC2_I_list)
         else:
-            axes["pc - ggaba"].set_xticks(tau_KCC2_E_list, minor=True)
-            axes["pc - ggaba"].set_xticks(
+            axs["pc - ggaba"].set_xticks(tau_KCC2_E_list, minor=True)
+            axs["pc - ggaba"].set_xticks(
                 tau_KCC2_E_list[::2], labels=tau_KCC2_E_list[::2]
             )
-            axes["in - ggaba"].set_xticks(tau_KCC2_I_list, minor=True)
-            axes["in - ggaba"].set_xticks(
+            axs["in - ggaba"].set_xticks(tau_KCC2_I_list, minor=True)
+            axs["in - ggaba"].set_xticks(
                 tau_KCC2_I_list[::2], labels=tau_KCC2_I_list[::2]
             )
 
         # share y axis
-        max_ylim = max(
-            axes["pc - ggaba"].get_ylim()[1], axes["in - ggaba"].get_ylim()[1]
-        )
-        axes["pc - ggaba"].set_ylim(0, max_ylim)
-        axes["in - ggaba"].set_ylim(0, max_ylim)
+        max_ylim = max(axs["pc - ggaba"].get_ylim()[1], axs["in - ggaba"].get_ylim()[1])
+        axs["pc - ggaba"].set_ylim(0, max_ylim)
+        axs["in - ggaba"].set_ylim(0, max_ylim)
 
         # ytick minor
-        axes["pc - ggaba"].set_yticks(np.arange(max_ylim), minor=True)
-        axes["in - ggaba"].set_yticks(np.arange(max_ylim), minor=True)
+        axs["pc - ggaba"].set_yticks(np.arange(max_ylim), minor=True)
+        axs["in - ggaba"].set_yticks(np.arange(max_ylim), minor=True)
 
         # remove legend from in
-        axes["in - ggaba"].get_legend().remove()
+        axs["in - ggaba"].get_legend().remove()
 
         # pretty up legend for pc
-        leg = axes["pc - ggaba"].legend(
+        leg = axs["pc - ggaba"].legend(
             fontsize="small",
             labelcolor="linecolor",
             loc="upper left",
@@ -1148,9 +1162,7 @@ class Tau(MultiRunFigure):
             handlelength=0,
             alignment="right",
         )
-        axes["pc - ggaba"].set_title(
-            f"{text.G_GABA} (nS)", fontsize="small", loc="left"
-        )
+        axs["pc - ggaba"].set_title(f"{text.G_GABA} (nS)", fontsize="small", loc="left")
 
         logger.info(f"plotting took {time.time() - start_time:.2f}")
 
@@ -2220,7 +2232,7 @@ if __name__ == "__main__":
         "--g_gaba_plot",
         type=int,
         nargs="*",
-        default=[50, 200],
+        default=[15, 50, 100, 200],
         help="GABA conductance to run",
     )
 

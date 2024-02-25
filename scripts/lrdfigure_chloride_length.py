@@ -1,3 +1,10 @@
+"""
+### Supplementary work:
+
+The effect of neuron size ($L$) and chloride extrusion ($\tau_{KCC2}$) on the number of bursts in a network
+
+"""
+
 from itertools import product
 import time
 from collections import OrderedDict, defaultdict
@@ -543,8 +550,12 @@ class ChlorideLength(MultiRunFigure):
 
             # axs[-1, len_idx].grid(True, axis="y", which="both", alpha=0.4, zorder=-99, linestyle='--')
             # axs[-2, len_idx].grid(True, axis="y", which="both", alpha=0.4, zorder=-99, linestyle='--')
-            axs[-1, len_idx].grid(True, axis="x", which="minor", alpha=0.4, zorder=-99, linestyle='--')
-            axs[-2, len_idx].grid(True, axis="x", which="minor", alpha=0.4, zorder=-99, linestyle='--')
+            axs[-1, len_idx].grid(
+                True, axis="x", which="minor", alpha=0.4, zorder=-99, linestyle="--"
+            )
+            axs[-2, len_idx].grid(
+                True, axis="x", which="minor", alpha=0.4, zorder=-99, linestyle="--"
+            )
             # axs[-1, len_idx].set_xlim(-shift, len(bins) - 1 - shift)
             if len_idx == 0:
                 axs[-1, len_idx].legend().remove()
@@ -642,7 +653,7 @@ if __name__ == "__main__":
     )
 
     cl_length.run(duration=600)
-    cl_length.plot(timeit=True, colorbar=False, plot_g_gabas=(50,))
+    cl_length.plot(timeit=True, burst_window=60, colorbar=False, plot_g_gabas=(50,))
     if settings.SAVE_FIGURES:
         cl_length.save_figure(use_args=False, close=False)
     plt.show()

@@ -1,6 +1,5 @@
 import time
 from typing import Iterable
-from matplotlib import patheffects
 from matplotlib.ticker import MaxNLocator
 
 import numpy as np
@@ -34,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 class Explain(LRDFigure):
     """
-    A class for generating and plotting LRDFigure 1, which shows the effect of varying the reversal potential of GABAergic
-    synapses on network activity.
+    A class for generating and plotting LRDFigure 1, which shows the effect of varying the reversal potential
+    of GABAergic synapses on network activity.
 
     Inherits from LRDFigure.
 
@@ -58,6 +57,7 @@ class Explain(LRDFigure):
         Plots the simulation results.
 
     """
+
     fig_name = "figure_1_explain"
 
     def run(
@@ -254,29 +254,33 @@ class Explain(LRDFigure):
             loc2=3,
         )
         mid_xs = []
+        r_I_idx = plot_rates.index("r_I")
+        r_E_idx = plot_rates.index("r_E")
+
         for ax_inset_pop in ax_insets:
-            xdata, ydata = ax_inset_pop.get_lines()[0].get_xydata().T
-            xdata_E, ydata_E = ax_inset_pop.get_lines()[1].get_xydata().T
-            max_idx = np.argmax(ydata)
-            mid_xs.append(xdata[max_idx])
+            ax_inset_pop: Axes
+            xdata_I, ydata_I = ax_inset_pop.get_lines()[r_I_idx].get_xydata().T
+            xdata_E, ydata_E = ax_inset_pop.get_lines()[r_E_idx].get_xydata().T
+            max_idx = np.argmax(ydata_I)
+            mid_xs.append(xdata_I[max_idx])
             for mid_x, xlim_sample, burst_sample in zip(
                 mid_xs, xlim_samples, burst_samples
             ):
                 # center of burst
                 ax_inset_pop.axvline(mid_x, lw=1, c=settings.COLOR.K, alpha=0.5)
                 x1, x2, interburst = burst_sample
-                burst_mask = (xdata >= x1) & (xdata <= x2)
-                burst_x = xdata[burst_mask]
-                burst_y = ydata[burst_mask] * 0.9
+                burst_mask = (xdata_I >= x1) & (xdata_I <= x2)
+                burst_x = xdata_I[burst_mask]
+                burst_y = ydata_I[burst_mask] * 0.9
                 ax_inset_pop.axvline(mid_x, lw=1, c=settings.COLOR.K, alpha=0.5)
 
                 # annotate amplitude
-                rate_baseline_I = np.mean(ydata[xdata <= x1])
+                rate_baseline_I = np.mean(ydata_I[xdata_I <= x1])
                 rate_baseline_E = np.mean(ydata_E[xdata_E <= x1])
                 rate_baseline = (
                     rate_baseline_I * self.N_I + rate_baseline_E * self.N_E
                 ) / self.N
-                rate_max_I = np.max(ydata)
+                rate_max_I = np.max(ydata_I)
                 rate_max_E = np.max(ydata_E)
                 rate_max_mean = (rate_max_I * self.N_I + rate_max_E * self.N_E) / self.N
                 ax_inset_pop.annotate(
@@ -302,7 +306,7 @@ class Explain(LRDFigure):
                     c=settings.COLOR.inh,
                     alpha=0.8,
                     arrowprops=dict(
-                        arrowstyle="<|-|>",
+                        arrowstyle="|-|",
                         color=settings.COLOR.inh,
                         alpha=0.5,
                         lw=0.5,
@@ -318,7 +322,7 @@ class Explain(LRDFigure):
                     c=settings.COLOR.R,
                     alpha=0.8,
                     arrowprops=dict(
-                        arrowstyle="<|-|>", color=settings.COLOR.R, alpha=0.5, lw=0.5
+                        arrowstyle="|-|", color=settings.COLOR.R, alpha=0.5, lw=0.5
                     ),
                 )
                 # annotate interburst
@@ -514,7 +518,7 @@ if __name__ == "__main__":
     explain.run(
         mv_step=2,
         time_per_value=60,
-        egaba=[-78, -34],
+        egaba=[-74, -40],
     )
 
     explain.plot()
