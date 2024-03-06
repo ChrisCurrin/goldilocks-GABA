@@ -415,7 +415,7 @@ if __name__ == "__main__":
     )
     exc_params.run()
     exc_params.process()
-    exc_params.plot(egabas=[-42, -56, -70])
+    # exc_params.plot(egabas=[-42, -56, -70])
     exc_params.save_figure(figs=exc_params.figs, close=True)
 
     plt.show()

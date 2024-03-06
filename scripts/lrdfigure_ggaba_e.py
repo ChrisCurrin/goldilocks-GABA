@@ -101,8 +101,13 @@ class Gve(MultiRunFigure):
         self.df_main, self.df = self.df, None
 
         logger.info(f"PART 2 - dynamic Chloride\n{'*'*20}")
-
+        # set reasonable starting ECl
+        EGABA_0 = -74
+        EGABA_end = -40
+        ecl_0 = round((EGABA_0 - phco3 * ehco3) / pcl, 2)
+        ecl_end = round((EGABA_end - phco3 * ehco3) / pcl, 2)
         kwargs["E_Cl_0"] = ecl_0 / 2 + ecl_end / 2  # start at mid-point between the 2
+        kwargs["E_Cl_end"] = ecl_end  # TODO: remove (used for cached results)
 
         super().__init__(
             OrderedDict(
@@ -113,7 +118,7 @@ class Gve(MultiRunFigure):
             seeds=self.seeds,
             default_params=dict(
                 dyn_cl=True,
-                duration=time_per_value * 10,
+                duration=600,
             ),
             **kwargs,
         )
@@ -397,12 +402,13 @@ class Gve(MultiRunFigure):
         :param i_metric: The metric to use for the GABA current calculation. Can be "mean" or "sum" or "diagram".
             Default is mean_igaba constant (defined at top of file). This is deprecated and "diagram" is used instead
             to leave open space for a diagram.
-        :param kwargs: Additional keyword arguments to pass to the super().plot() method.
+        :param kwargs: Additional keyword arguments to pass to the super().plot() and sub plotting method.
         :return: The updated instance of the class.
 
         :note: If you want to plot the data, you must call process() first.
         :note: i_metric is deprecated as it doesn't make sense to regress over GABA current for the number of bursts
-            because GABA current is dependent on the number of bursts (even for mean_igaba as it is defined in process()).
+            because GABA current is dependent on the number of bursts
+            (even for mean_igaba as it is defined in process()).
 
         """
         super().plot(**kwargs)
@@ -444,7 +450,12 @@ class Gve(MultiRunFigure):
         self.figs.append(fig)
         # static_ax = fig.add_subplot(gs[0, 0])
         static_ax = axes["static_egaba"]
-        self.plot_staticegaba(ax=static_ax, egabas=egabas)
+        self.plot_staticegaba(
+            ax=static_ax,
+            egabas=egabas,
+            cmap=kwargs.get("mesh_cmap"),
+            norm=kwargs.get("mesh_norm"),
+        )
         static_ax.set_xlim(10, xmax=1000)
         static_ax.set_ylim(0, ymax=13)
         static_ax.set_xlabel(f"{text.G_GABA} (nS)")
@@ -464,11 +475,12 @@ class Gve(MultiRunFigure):
         self.plot_taukcc2(
             ax=tau_ax,
             cax=cax,
-            min_s=fig_size[0] * fig_size[1],
+            # min_s=fig_size[0] * fig_size[1], # moved to plot_taukcc2
             num_bursts=num_bursts,
             **kwargs,
         )
         tau_ax.set_xlabel(f"{text.G_GABA} (nS)")
+        tau_ax.set_ylabel(f"{text.TAU_KCC2} (s)")
 
         vline_kwargs = dict(c=settings.COLOR.K, ls="-", lw=1)
         static_ax.axvline(50, zorder=1, **vline_kwargs)
@@ -568,6 +580,7 @@ class Gve(MultiRunFigure):
 
         ZZ = f(new_x, new_y)
         df_zz = pd.DataFrame(ZZ).T
+        # -60 mV line
         eg_df = np.abs(df_zz - -60)
         eg_idx = eg_df.idxmin(axis=0)
         eg_val = eg_df.min(axis=0)
@@ -614,10 +627,10 @@ class Gve(MultiRunFigure):
             mesh = ax.plot_surface(
                 np.log10(XX),
                 np.log10(YY),
-                ZZ,
+                ZZ.T,
                 rcount=200,
                 ccount=200,
-                cmap="coolwarm",
+                cmap=mesh_cmap,
                 norm=mesh_norm,
                 zorder=-99,
             )
@@ -633,6 +646,9 @@ class Gve(MultiRunFigure):
             ax.set_ylim(np.log10(1), np.log10(1000))
             ax.set_xlim(np.log10(50), np.log10(1600))
             # ax.view_init(elev=10., azim=-45)
+            ax.set_xlabel("log10(g_gaba)")
+            ax.set_ylabel("log10(tau_kcc2)")
+            ax.set_zlabel("EGABA")
         else:
             mesh = ax_g_v_tau.pcolormesh(
                 XX,
@@ -1010,7 +1026,9 @@ class Gve(MultiRunFigure):
             cbar.outline.set_visible(False)
         # ax.set_xscale("symlog")
 
-    def plot_staticegaba(self, fig=None, ax=None, norm=None, cmap=None, egabas=None):
+    def plot_staticegaba(
+        self, fig=None, ax=None, norm=None, cmap=None, egabas=None, **kwargs
+    ):
         if ax is None:
             fig, ax = plt.subplots()
             self.figs.append(fig)
@@ -1019,9 +1037,11 @@ class Gve(MultiRunFigure):
         if cmap is None:
             cmap = settings.COLOR.EGABA_SM.cmap
         if egabas is None:
-            egabas = self.df_g_E_bursts[text.EGABA].unique()
+            egabas = sorted(self.df_g_E_bursts[text.EGABA].unique())
         elif isinstance(egabas, int):
-            _egaba_values = np.arange(self.EGABA_0, self.EGABA_end, self.mv_step)
+            _egaba_values = np.arange(
+                self.EGABA_0, self.EGABA_end, self.mv_step
+            ).tolist()
             egabas = _egaba_values[:: len(_egaba_values) // egabas]
 
         # bursts v G with EGABA
@@ -1042,7 +1062,7 @@ class Gve(MultiRunFigure):
             palette=cmap,
             data=wide_df.reset_index()
             .melt(id_vars=text.G_GABA, value_name=self.num_bursts_col)
-            .query(f"{text.EGABA} in {egabas.tolist()}"),
+            .query(f"{text.EGABA} in {egabas}"),
             ax=ax,
             legend=False,
         )
@@ -1054,12 +1074,30 @@ class Gve(MultiRunFigure):
             hue_order=egabas,
             hue_norm=norm,
             palette=cmap,
-            data=self.df_g_E_bursts.query(f"{text.EGABA} in {egabas.tolist()}"),
+            data=self.df_g_E_bursts.query(f"{text.EGABA} in {egabas}"),
             ax=ax,
-            legend=True,
+            legend=(
+                "brief"
+                if len(egabas) == len(self.df_g_E_bursts[text.EGABA].unique())
+                else "full"
+            ),
             err_style="bars",
             errorbar="se",
         )
+        # plot just -60mv
+        sns.lineplot(
+            x=text.G_GABA,
+            y=self.num_bursts_col,
+            c="k",
+            ls="--",
+            lw=2,
+            data=wide_df.reset_index()
+            .melt(id_vars=text.G_GABA, value_name=self.num_bursts_col)
+            .query(f"{text.EGABA} in [-60]"),
+            ax=ax,
+            legend=False,
+        )
+
         if fig is not None:
             cbar = fig.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax)
             cbar.set_label(f"{text.EGABA} (mV)")
@@ -1230,20 +1268,271 @@ class Gve(MultiRunFigure):
         axs_d[0, 1].set_title("Mean area", fontsize="small")
         axs_d[0, 1].set_ylim(0)
 
+    def supp_figure(
+        self,
+        ggaba_ignore=None,
+        egaba_vs_ggaba_static_cl=True,
+        egaba_vs_ggaba=True,
+        egaba_vs_tau_kcc2=True,
+        bursts_vs_egaba=True,
+        bursts_vs_ggaba=True,
+        bursts_vs_tau_kcc2=True,
+    ):
+        from scipy import stats
+
+        ggaba_ignore = (
+            ggaba_ignore or []
+        )  # sorted(set(np.geomspace(60, 158, 7).round(0)) - {97})
+        if "$E_{GABA}$" in self.df_g_tau_bursts:
+            self.df_g_tau_bursts["EGABA"] = self.df_g_tau_bursts["$E_{GABA}$"]
+        df_sub_bursts = self.df_g_tau_bursts[
+            ~self.df_g_tau_bursts[text.G_GABA].isin(ggaba_ignore)
+        ]
+        df_sub_tau = self.df_g_tau[~self.df_g_tau[text.G_GABA].isin(ggaba_ignore)]
+
+        # fill in 0s for missing values
+        for gaba, tau in itertools.product(
+            df_sub_tau[text.G_GABA].unique(), df_sub_tau[text.TAU_KCC2].unique()
+        ):
+            entry_exists = (
+                df_sub_bursts[
+                    (df_sub_bursts[text.G_GABA] == gaba)
+                    & (df_sub_bursts[text.TAU_KCC2] == tau)
+                ].shape[0]
+                > 0
+            )
+            if not entry_exists:
+                df_sub_bursts = pd.concat(
+                    [
+                        df_sub_bursts,
+                        pd.DataFrame(
+                            {
+                                text.G_GABA: gaba,
+                                text.TAU_KCC2: tau,
+                                self.num_bursts_col: 0,
+                            },
+                            index=[0],
+                        ),
+                    ],
+                    ignore_index=True,
+                )
+
+        fig, axs = plt.subplots(
+            2,
+            max(
+                egaba_vs_ggaba_static_cl + egaba_vs_ggaba + egaba_vs_tau_kcc2,
+                bursts_vs_egaba + bursts_vs_ggaba + bursts_vs_tau_kcc2,
+            ),
+            figsize=(settings.PAGE_W_FULL, settings.PAGE_H_half),
+            squeeze=False,  # always use [row, col] notation
+            # sharey="row",
+            # gridspec_kw={"width_ratios": [1, 1, 1]},
+        )
+
+        if egaba_vs_ggaba_static_cl:
+            ax = axs[0, 0]
+
+            g_gabas = sorted(self.df_g_E_bursts[text.G_GABA].unique())
+            egabas = sorted(self.df_g_E_bursts["EGABA"].unique())
+            GG, EE = np.meshgrid(g_gabas, egabas)
+            ZZ = EE
+
+            ax.pcolor(
+                GG, EE, ZZ, cmap=COLOR.EGABA_SM.get_cmap(), norm=COLOR.EGABA_SM.norm
+            )
+            sns.scatterplot(
+                data=self.df_g_E_bursts[
+                    self.df_g_E_bursts[text.G_GABA].isin(
+                        set(self.df_g_tau_bursts[text.G_GABA].unique())
+                    )
+                ],
+                x=text.G_GABA,
+                y="EGABA",
+                size=self.num_bursts_col,
+                hue=self.num_bursts_col,
+                size_norm=(1, 15),
+                hue_norm=(1, 15),
+                ax=ax,
+                palette="viridis",
+                clip_on=False,
+                zorder=10,
+                # cmap=COLOR.EGABA_SM.get_cmap()
+            )
+
+            ax.set_xscale("log")
+            ax.set_xlim(10, 1000)
+
+        if egaba_vs_ggaba:
+            ax_ggaba = axs[0, int(egaba_vs_ggaba_static_cl)]
+
+            sns.lineplot(
+                data=self.df_g_tau,
+                y="EGABA",
+                x=text.G_GABA,
+                hue=text.TAU_KCC2,
+                palette=COLOR.TAU_SM.get_cmap(),
+                hue_norm=COLOR.TAU_SM.norm,
+                marker=".",
+                ax=ax_ggaba,
+                legend="full",
+            )
+            ax_ggaba.set_xscale("log")
+
+        if egaba_vs_tau_kcc2:
+            ax_tau = axs[0, int(egaba_vs_ggaba_static_cl + egaba_vs_ggaba)]
+
+            sns.lineplot(
+                data=self.df_g_tau,
+                y="EGABA",
+                x=text.TAU_KCC2,
+                hue=text.G_GABA,
+                palette=COLOR.G_GABA_SM.cmap,
+                hue_norm=COLOR.G_GABA_SM.norm,
+                marker=".",
+                ax=ax_tau,
+                legend="full",
+            )
+            taus = sorted(self.df_g_tau[text.TAU_KCC2].unique())
+            ax_tau.set_xscale("log")
+            tau_labels = [
+                f"{tau:.0f}" if int(tau) == float(tau) else f"{tau}" for tau in taus
+            ]
+            ax_tau.set_xticks(taus, labels=[], minor=True)
+            ax_tau.set_xticks(taus[::2], labels=tau_labels[::2])
+
+        # self.plot_taukcc2(ax=axs[1,0], cax=axs[0, 1])
+
+        if bursts_vs_egaba:
+            ax_bursts_vs_egaba = axs[1, 0]
+            sns.scatterplot(
+                data=df_sub_bursts,
+                y=self.num_bursts_col,
+                x="EGABA",
+                ax=ax_bursts_vs_egaba,
+                marker=".",
+                hue=text.G_GABA,
+                palette=COLOR.G_GABA_SM.cmap,
+                hue_norm=COLOR.G_GABA_SM.norm,
+                size=text.TAU_KCC2,
+            )
+            from scipy import stats
+
+            reg_data = df_sub_bursts[["EGABA", self.num_bursts_col]].dropna()
+            sns.regplot(
+                data=reg_data,
+                y=self.num_bursts_col,
+                x="EGABA",
+                ax=ax_bursts_vs_egaba,
+                scatter=False,
+                color="k",
+            )
+            r = stats.linregress(reg_data["EGABA"], reg_data[self.num_bursts_col])
+            ax_bursts_vs_egaba.annotate(
+                f"$R^2$ = {r.rvalue ** 2:.2f} (p = {r.pvalue:.2g})",
+                xy=(0.5, 0.5),
+                xycoords="axes fraction",
+                fontsize="xx-small",
+                ha="right",
+                va="top",
+                color="k",
+                # arrowprops=dict(arrowstyle='-|>',connectionstyle="arc3, rad=-0.1")
+            )
+
+        if bursts_vs_ggaba:
+            ax_bursts_vs_ggaba = axs[1, int(bursts_vs_egaba)]
+            sns.lineplot(
+                data=df_sub_bursts,
+                y=self.num_bursts_col,
+                x=text.G_GABA,
+                hue=text.TAU_KCC2,
+                palette=COLOR.TAU_SM.get_cmap(),
+                hue_norm=COLOR.TAU_SM.norm,
+                ax=ax_bursts_vs_ggaba,
+                marker=".",
+                # multi="stack",
+            )
+
+            # regression
+            reg_data = df_sub_bursts[[text.G_GABA, self.num_bursts_col]].dropna()
+            sns.regplot(
+                data=reg_data,
+                y=self.num_bursts_col,
+                x=text.G_GABA,
+                ax=ax_bursts_vs_ggaba,
+                scatter=False,
+                logx=True,
+                color="k",
+            )
+            ax_bursts_vs_ggaba.set_xscale("log")
+            r = stats.linregress(reg_data[text.G_GABA], reg_data[self.num_bursts_col])
+            print(r)
+            ax_bursts_vs_ggaba.annotate(
+                f"$R^2$ = {r.rvalue ** 2:.2f} (p = {r.pvalue:.2g})",
+                xy=(0.5, 0.5),
+                xycoords="axes fraction",
+                fontsize="xx-small",
+                ha="right",
+                va="top",
+            )
+
+        if bursts_vs_tau_kcc2:
+            ax_bursts_vs_tau = axs[1, int(bursts_vs_egaba + bursts_vs_ggaba)]
+
+            sns.lineplot(
+                data=df_sub_bursts,
+                y=self.num_bursts_col,
+                x=text.TAU_KCC2,
+                hue=text.G_GABA,
+                ax=ax_bursts_vs_tau,
+                palette=COLOR.G_GABA_SM.cmap,
+                hue_norm=COLOR.G_GABA_SM.norm,
+                marker=".",
+            )
+            # reg
+            reg_data = df_sub_bursts[[text.TAU_KCC2, self.num_bursts_col]].dropna()
+            sns.regplot(
+                data=reg_data,
+                y=self.num_bursts_col,
+                x=text.TAU_KCC2,
+                ax=ax_bursts_vs_tau,
+                scatter=False,
+                logx=True,
+                color="k",
+            )
+            r = stats.linregress(reg_data[text.TAU_KCC2], reg_data[self.num_bursts_col])
+            print(r)
+            ax_bursts_vs_tau.annotate(
+                f"$R^2$ = {r.rvalue ** 2:.2f} (p = {r.pvalue:.2g})",
+                xy=(0.5, 0.5),
+                xycoords="axes fraction",
+                fontsize="xx-small",
+                ha="right",
+                va="top",
+            )
+
+            ax_bursts_vs_tau.set_xscale("log")
+            ax_bursts_vs_tau.set_xticks(taus, labels=[], minor=True)
+            ax_bursts_vs_tau.set_xticks(taus[::2], labels=tau_labels[::2])
+            ax_bursts_vs_tau.set_ylim(top=15)
+
+        return fig
+
 
 if __name__ == "__main__":
     # extend tau_KCC2 list to lower values, at the same ratio as existing values
-    tau_KCC2_list = settings.TAU_KCC2_LIST
+    tau_KCC2_list = list(settings.TAU_KCC2_LIST)
 
+    # add some more lower values for tau
     ratio = tau_KCC2_list[1] / tau_KCC2_list[0]
-    # above ratio slightly off but results already cached.
+    # TODO: use proper ratio
+    # ratio above ratio slightly off but results already cached.
     # ratio = np.sqrt(2)
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
 
-    gve = Gve(
+    self = self(
         seeds=(
             None,
             1234,
@@ -1272,7 +1561,9 @@ if __name__ == "__main__":
         gGABAs=np.geomspace(10, 1000, 11).round(0),
         tau_KCC2s=tau_KCC2_list,
     )
-    gve.run()
-    gve.process()
-    gve.plot(egabas=5)
-    gve.save_figure(figs=gve.figs, close=True)
+    self.run(time_per_value=60, EGABA_0=-80, EGABA_end=-38, mv_step=2)
+    self.process()
+    egabas = [-80, -70, -64, -60, -56, -50, -40]
+    # self.df_g_E_bursts[text.EGABA].unique()
+    self.plot(egabas=egabas, i_metric="diagram")
+    self.save_figure(figs=self.figs, close=True)

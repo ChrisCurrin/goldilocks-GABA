@@ -181,6 +181,8 @@ def single_run(
     ################################################################################
     # General parameters
     duration = (duration or 90) * second  # Total simulation time
+    if dt is not None:
+        defaultclock.dt = dt * ms
 
     # Seizure parameters
     zero_mag_onset_t = 0.0 * second
@@ -283,7 +285,7 @@ def single_run(
     # External stimuli
     rate_ext = 2 * Hz
     C_ext = 800
-    
+
     # Chloride dynamics
     E_Cl_end = (E_Cl_end or -60) * mV  # Final ECl to reach when stepping ECl
     num_ecl_steps = num_ecl_steps or 1  # Number of changes to ECl when manual cl.
@@ -409,8 +411,8 @@ def single_run(
 
     eqs_glut = """
         g_NMDA_tot_post = g_NMDA_syn : 1 (summed)
-        dg_NMDA_syn / dt = - g_NMDA_syn / tau_NMDA_decay + alpha * x * (1 - g_NMDA_syn) : 1 (clock-driven)
-        dx / dt = - x / tau_NMDA_rise : 1 (clock-driven)
+        dg_NMDA_syn/dt = - g_NMDA_syn / tau_NMDA_decay + alpha * x * (1 - g_NMDA_syn) : 1 (clock-driven)
+        dx/dt = - x / tau_NMDA_rise : 1 (clock-driven)
     """
 
     eqs_pre_glut = f"""{synapses_action}
@@ -601,8 +603,6 @@ def single_run(
     for _S in S_list:
         _S.x_S = "clip(U_0*2,0,1)"  # initial resources available
 
-    defaultclock.dt = dt or defaultclock.dt
-
     if get_device() != all_devices["cpp_standalone"]:
         net = Network(collect())
         # net.add(synapse_monitors)
@@ -654,8 +654,12 @@ def single_run(
                         S.w[:p0_idx] = w_val
                 else:
                     S.w = w_val
-                logger.info("{}: # that are >0 = {:.0f}".format(S_name, np.sum(S.w > 0.0)))
-                logger.info("{}: # that are >1 = {:.0f}".format(S_name, np.sum(S.w > 1.0)))
+                logger.info(
+                    "{}: # that are >0 = {:.0f}".format(S_name, np.sum(S.w > 0.0))
+                )
+                logger.info(
+                    "{}: # that are >1 = {:.0f}".format(S_name, np.sum(S.w > 1.0))
+                )
             net.run(static_conn_dt, report="text")
     else:
         run(duration, report="text")

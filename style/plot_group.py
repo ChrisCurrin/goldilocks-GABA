@@ -131,10 +131,12 @@ def activity_plot(
             leg_texts,
             # bbox_to_anchor=(1, 0), loc=3
         )
-    if hasattr(state_mon, "v"):
         # Spectrogram
         plot_spectrogram(
-            state_mon.I_GABA_rec.mean(axis=0), ax=ax[3], time_unit=time_unit
+            r_all.smooth_rate(**smooth_rate_args),
+            ax=ax[3],
+            time_unit=time_unit,
+            Fs=smooth_rate_args["width"] / ms,
         )
     if sp_all is not None:
         spike_train_profile(sp_all, ax=ax[4:6], time_unit=time_unit)

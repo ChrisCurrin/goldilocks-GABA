@@ -1,4 +1,4 @@
-# Goldilocks GABA: A Computational Model of Status Epilepticus Reveals Regimes for Terminating Epileptiform Activity
+# Goldilocks GABA: Network models incorporating chloride dynamics predict optimal strategies for terminating status epilepticus
 
 ## Abstract
 
@@ -20,5 +20,6 @@
 
 ## Reproducing the results
 
-* Run the cells in the notebook in order
-* To download the data used in the paper (~30 GB), set `DOWNLOAD_CACHE = True` in the first cell. This may take a while depending on your internet connection.
+Option 1: Run the cells in the notebook and click "Run" for the widgets
+
+Option 2: Run each file in script

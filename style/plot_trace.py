@@ -233,13 +233,16 @@ def plot_population_zooms(
     return ax_zooms
 
 
-def plot_spectrogram(arr, time_unit=ms, ax=None):
+def plot_spectrogram(arr, time_unit=ms, ax=None, Fs=None):
+    from brian2 import defaultclock
+    from matplotlib import ticker as mticker
+    
     if ax is None:
         fig, ax = plt.subplots()
     else:
         fig = ax.figure
     NFFT = np.power(2, 10)  # the length of the windowing segments
-    Fs = int(time_unit / second / defaultclock.dt)  # the sampling frequency
+    Fs = Fs or defaultclock.dt  # the sampling frequency of the data
     logger.info("Spectrogram rates")
     power_spectrum, freqs, t_bins, im = ax.specgram(
         arr,
@@ -254,7 +257,14 @@ def plot_spectrogram(arr, time_unit=ms, ax=None):
     cbar = fig.colorbar(im, ax=ax, fraction=0.1, pad=0.0)
     cbar.set_label("Power (dB/Hz)")
     ax.set(ylabel="Frequency (Hz)")
-    # ax.set_ylim(0, 2)
+    # Fs is in units ms, so change xaxis to time_unit if needed (e.g. time_unit is second)
+    if time_unit != ms:
+        ax.xaxis.set_major_locator(mticker.MultipleLocator(time_unit / ms))
+    ax.xaxis.set_major_formatter(
+        mticker.FuncFormatter(lambda x, pos: x / (time_unit / ms)/int(Fs))
+    )
+    ax.set(xlabel="Time ({})".format(time_unit))
+    return ax
 
 
 def plot_conductances(
@@ -649,9 +659,7 @@ def plot_synaptic_variables(
             lw = (
                 kwargs["lw"]
                 if "lw" in kwargs
-                else kwargs["linewidth"]
-                if "linewidth" in kwargs
-                else 0.5
+                else kwargs["linewidth"] if "linewidth" in kwargs else 0.5
             )
             ax_w.vlines(
                 t[spk_index] / time_unit,
@@ -671,14 +679,10 @@ def plot_synaptic_variables(
             )
     if ax_x and ax_u:
         xs_label = (
-            text.VESICLES_LONG.replace("\n", "(%)\n")
-            if perc
-            else text.VESICLES_LONG
+            text.VESICLES_LONG.replace("\n", "(%)\n") if perc else text.VESICLES_LONG
         )
         us_label = (
-            text.EFFICACY_LONG.replace("\n", "(%)\n")
-            if perc
-            else text.EFFICACY_LONG
+            text.EFFICACY_LONG.replace("\n", "(%)\n") if perc else text.EFFICACY_LONG
         )
     else:
         xs_label = text.VESICLES_TEXT
@@ -686,9 +690,7 @@ def plot_synaptic_variables(
         if perc:
             xs_label += " (%)"
             us_label += " (%)"
-    w_label = (
-        text.WEIGHT_LONG.replace("\n", "(%)\n") if perc else text.WEIGHT_LONG
-    )
+    w_label = text.WEIGHT_LONG.replace("\n", "(%)\n") if perc else text.WEIGHT_LONG
     if ax_x != ax_u:
         if ax_x is not None:
             ax_x.set_ylabel(xs_label)
