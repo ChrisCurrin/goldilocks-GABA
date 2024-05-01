@@ -37,6 +37,7 @@ modules_to_ignore = [
     "colormath.color_conversions",
     "asyncio",
     "fontTools",
+    "root",
 ]
 for module in modules_to_ignore:
     logging.getLogger(module).setLevel(logging.WARNING)

@@ -42,13 +42,32 @@ playground_widget_part = functools.partial(
     g_AMPA_max=(0, 50, 1),
     g_NMDA_max=(0, 10, 1),
     g_GABA_max=(0, 200, 25),  # conductances
-    manual_cl=[False, "both", "E", "I"],  # dynamic/manual arg
+    E_leak=ipywidgets.IntSlider(
+        -70, min=-80, max=-40, step=1, style=style_desc_width_auto
+    ),
+    g_l_I=ipywidgets.FloatSlider(
+        20, min=0.2, max=30, step=0.2, style=style_desc_width_auto
+    ),
+    g_l_E=ipywidgets.FloatSlider(
+        20, min=0.2, max=30, step=0.2, style=style_desc_width_auto
+    ),  # leak params
+    g_AMPA_max_ext=ipywidgets.FloatSlider(
+        2,
+        min=0,
+        max=5,
+        step=0.25,
+        description="EXTERNAL Max conductance",
+        style=style_desc_width_auto,
+    ),
+    C_ext=ipywidgets.IntSlider(800, 0, 1000, 10, style=style_desc_width_auto),
+    rate_ext=(0, 5, 0.25),  # external input params
+    manual_cl=[False, "both", "PC", "IN"],  # dynamic/manual arg
     E_Cl_0=(-100, -40, 1),
     E_Cl_end=(-100, -40, 1),
     num_ecl_steps=(1, 20, 1),  # dynamic + manual params
     dyn_cl=True,
     E_Cl_target=(-100, -40, 1),
-    E_Cl_pop=["both", "E", "I"],  # ECl params
+    E_Cl_pop=["both", "PC", "IN"],  # ECl params
     length=ipywidgets.FloatSlider(
         value=7.5, min=0.5, max=30, step=0.5
     ),  # neuron params
@@ -148,7 +167,20 @@ def new_playground_widget(f):
             "tau_KCC2_I",
         }
     ]
-
+    ext_input_params = [
+        c
+        for c in pg_widget.children
+        if has_description(c)
+        and (
+            c.description in {"g_AMPA_max_ext", "C_ext", "rate_ext"}
+            or "EXTERNAL" in c.description
+        )
+    ]
+    leak_params = [
+        c
+        for c in pg_widget.children
+        if has_description(c) and c.description in {"g_l_I", "g_l_E", "E_leak"}
+    ]
     neuron_params = [
         c
         for c in pg_widget.children
@@ -189,6 +221,8 @@ def new_playground_widget(f):
         + stp_params
         + ecl_clamp_params
         + ecl_dyn_params
+        + ext_input_params
+        + leak_params
         + neuron_params
     )
     all_children_set = set(all_children)
@@ -206,8 +240,6 @@ def new_playground_widget(f):
                 .replace("benzo", "")
                 .title()
             )
-        elif "g_" in _c.description:
-            _c.description = _c.description.replace("g_", "").replace("_max", "")
         elif _c.description == "nrn_idx_i":
             _c.description = "Record indices"
         elif _c.description == "num_ecl_steps":
@@ -231,12 +263,39 @@ def new_playground_widget(f):
                 .replace("tau_f", "τ facilitation (s)")
             )
             _c.style.description_width = "initial"
-        else:
+        elif (
+            _c.description in {"C_ext", "rate_ext", "g_AMPA_max_ext"}
+            or "EXTERNAL" in _c.description
+        ):
+            if _c.description == "C_ext":
+                _c.description = "# connections"
+            elif _c.description == "rate_ext":
+                _c.description = "Rate (Hz)"
+            elif _c.description == "g_AMPA_max_ext":
+                _c.description = "Max conductance (nS)"
+            _c.description = _c.description.replace("EXTERNAL ", " ")
+        elif _c.description in {"g_l_I", "g_l_E"}:
+            _c.description = _c.description.replace("g_l_", "conductance ")
+        elif _c.description == "E_leak":
+            _c.description = "Reversal"
+        elif _c.description.startswith("p_") or _c.description.startswith("w_"):
             _c.description = (
-                _c.description.replace("_Cl", "Cl⁻")
-                .replace("_", " ")
-                .replace("tau", "τ")
+                _c.description.replace("p_", "")
+                .replace("w_", "")
+                .replace("ee", "PC→PC")
+                .replace("ii", "IN→IN")
+                .replace("ei", "IN→PC")
+                .replace("ie", "PC→IN")
             )
+        elif "g_" in _c.description:
+            _c.description = _c.description.replace("g_", "").replace("_max", "")
+        _c.description = (
+            _c.description.replace("_Cl", "Cl⁻")
+            .replace("_", " ")
+            .replace("tau", "τ")
+            .replace(" I", " [IN]")
+            .replace(" E", " [PC]")
+        )
     # link manual_cl and dyn_cl widgets
     ipywidgets.link(
         (ecl_clamp_params[0], "value"),
@@ -260,7 +319,7 @@ def new_playground_widget(f):
         + [
             ipywidgets.VBox(
                 [
-                    ipywidgets.HTML("<h1>Connection</h1>", **label_kwargs),
+                    ipywidgets.HTML("<h1>Connections</h1>", **label_kwargs),
                     ipywidgets.HBox(
                         [
                             ipywidgets.Label("probabilities", **label_kwargs),
@@ -277,7 +336,7 @@ def new_playground_widget(f):
                     ),
                     ipywidgets.HBox(
                         [
-                            ipywidgets.Label("max conductance", **label_kwargs),
+                            ipywidgets.Label("max conductance (nS)", **label_kwargs),
                             *g_children,
                         ]
                     ),
@@ -298,7 +357,7 @@ def new_playground_widget(f):
             ipywidgets.HBox(
                 [
                     ipywidgets.HTMLMath(
-                        value=r"<h1>Benzo</h1><br>modify $g_{GABA_{max}}$",
+                        value="<h1>Benzo</h1><br><em>modify max GABA conductance</em>",
                         **label_kwargs,
                     ),
                     *benzo_params,
@@ -331,6 +390,24 @@ def new_playground_widget(f):
                             *ecl_dyn_params,
                         ]
                     ),
+                ],
+                layout=hbox_layout,
+            )
+        ]
+        + [
+            ipywidgets.HBox(
+                [
+                    ipywidgets.HTML("<h1>External Input</h1>", **label_kwargs),
+                    *ext_input_params,
+                ],
+                layout=hbox_layout,
+            )
+        ]
+        + [
+            ipywidgets.HBox(
+                [
+                    ipywidgets.HTML("<h1>Leak</h1>", **label_kwargs),
+                    *leak_params,
                 ],
                 layout=hbox_layout,
             )

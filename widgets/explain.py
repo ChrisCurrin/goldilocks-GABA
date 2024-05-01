@@ -22,12 +22,14 @@ from widgets.common import (
 ############################
 
 initial_values = {
+    "N": 1000,
     "mv_step": 4,
     "time_per_value": 40,
     "egaba_start": -78,
     "egaba_end": -34,
 }
 supp_values = {
+    "N": 5000,
     "mv_step": 2,
     "time_per_value": 60,
     "egaba_start": -74,
@@ -98,24 +100,21 @@ def new_explain_widget(f):
     supp_button = Button(description="Supplementary", button_style="info")
     supp_button.on_click(reset_values)
 
-    num_neurons = explain_widget.children[0]
     explain_widget.children[-2].button_style = manual_run_button_style
     # add buttons and keep output last
     explain_widget.children = (
-        explain_widget.children[1:-1]
+        explain_widget.children[:-2]
         + (
             HBox(
                 [
                     Label("Set above values to...", style={"font_weight": "bold"}),
                     reset_button,
                     supp_button,
-                    Label("and change..."),
-                    num_neurons,
                 ],
-                layout=Layout(border="1px solid gray", width="initial"),
+                # layout=Layout(border="1px solid gray"),
             ),
         )
-        + (explain_widget.children[-1],)
+        + explain_widget.children[-2:]
     )
 
     return explain_widget
