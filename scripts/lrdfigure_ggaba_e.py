@@ -1278,7 +1278,6 @@ class Gve(MultiRunFigure):
         bursts_vs_ggaba=True,
         bursts_vs_tau_kcc2=True,
     ):
-        from scipy import stats
 
         ggaba_ignore = (
             ggaba_ignore or []
@@ -1415,7 +1414,6 @@ class Gve(MultiRunFigure):
                 hue_norm=COLOR.G_GABA_SM.norm,
                 size=text.TAU_KCC2,
             )
-            from scipy import stats
 
             reg_data = df_sub_bursts[["EGABA", self.num_bursts_col]].dropna()
             sns.regplot(
@@ -1532,7 +1530,7 @@ if __name__ == "__main__":
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
     tau_KCC2_list = [np.round(tau_KCC2_list[0] / ratio, 1)] + tau_KCC2_list
 
-    self = self(
+    self = Gve(
         seeds=(
             None,
             1234,
@@ -1563,7 +1561,7 @@ if __name__ == "__main__":
     )
     self.run(time_per_value=60, EGABA_0=-80, EGABA_end=-38, mv_step=2)
     self.process()
-    egabas = [-80, -70, -64, -60, -56, -50, -40]
-    # self.df_g_E_bursts[text.EGABA].unique()
+    egabas = [-80, -72, -66, -60, -56, -54, -52, -50, -48, -40]
+
     self.plot(egabas=egabas, i_metric="diagram")
     self.save_figure(figs=self.figs, close=True)
