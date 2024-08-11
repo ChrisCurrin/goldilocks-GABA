@@ -1,8 +1,25 @@
 # Goldilocks GABA: Network models incorporating chloride dynamics predict optimal strategies for terminating status epilepticus
 
+<a target="_blank" href="https://colab.research.google.com/github/ChrisCurrin/goldilocks-GABA/blob/main/lrd_figures.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
+
+**[Christopher B. Currin](https://chriscurrin.com)**<sup>1,2</sup>, Richard J. Burman<sup>1,3,4,5</sup>, Tommaso Fedele<sup>3</sup>, Georgia Ramantani<sup>3</sup>, Richard E. Rosch<sup>6,7</sup>, Henning Sprekeler<sup>8</sup>, and Joseph V. Raimondo<sup>1</sup>.
+
+1. Division of Cell Biology, Department of Human Biology, Neuroscience Institute and Institute of Infectious Disease and Molecular Medicine, Faculty of Health Sciences, University of Cape Town, Cape Town, South Africa
+2. Institute of Science and Technology Austria, Klosterneuburg, Austria
+3. Department of Paediatric Neurology, University Children's Hospital Zurich and University of Zurich, Zurich, Switzerland
+4. Department of Pharmacology, University of Oxford, United Kingdom
+5. Oxford Epilepsy Research Group, Nuffield Department of Clinical Neurosciences, University of Oxford, Oxford, United Kingdom
+6. Department of Clinical Neurophysiology, King’s College Hospital NHS Foundation Trust, London 
+7. Wellcome Centre for Imaging Neuroscience, University College London, London, United Kingdom
+8. Bernstein Center for Computational Neuroscience Berlin, Technische Universität Berlin, Marchstr 23, Berlin, Germany
+
+
 ## Abstract
 
-> A seizure that continues for more than 5 minutes constitutes a medical emergency and is classified as status epilepticus (SE). The current first-line treatments for SE target the conductance of the GABA type A receptor (GABAAR). Recent experiment data has demonstrated that agents which positively modulate GABAARs can have a paradoxical effect that depends on the duration of the seizure and the GABA reversal potential (EGABA). As further clinical and experimental research is conducted to understand this life-threatening brain state, I have sought to complement research efforts with an in silico network model that recapitulates experimental results and informs future therapeutic strategies. I demonstrate that 1) elevated EGABA is sufficient to have a balanced network enter an SE-like activity state. 2) The network bursting activity responds to benzodiazepine-like GABAAR modulation in agreement with experiments. 3) Compromised Cl- extrusion can lead a stable network into SE and maintain SE after Cl- accumulation, which can arise via a seizure. 4) Specifically targeting Cl- extrusion in pyramidal cells showcases their primary role in maintaining a network’s SE state. 5) The total GABAergic current leading up to SE bursts correlates with the severity of the state. This model forms a foundation for further theoretical research into this pathology. Together, my results back up experimental findings and suggest future nuanced approaches to treatment.
+> Seizures that continue for beyond five minutes are classified as status epilepticus (SE) and constitute a medical emergency. Benzodiazepines, the current first-line treatment, attempt to terminate SE by increasing the conductance of chloride-permeable type-A GABA receptors (GABA<sub>A</sub>Rs). Despite their widespread use, benzodiazepines are ineffective in over a third of cases. Previous research in animal models has demonstrated that changes in intraneuronal chloride homeostasis and GABAAR physiology may underlie the development of benzodiazepine resistance in SE. However, there remains a need to understand the effect of these changes at a network level to improve translation into the clinical domain. Therefore, informed by data from human EEG recordings of SE and experimental brain slice recordings, we used a large spiking neural network model that incorporates chloride dynamics to investigate and address the phenomenon of benzodiazepine resistance in SE. We found that the GABA<sub>A</sub>R reversal potential (EGABA) sets SE-like bursting and determines the response to GABA<sub>A</sub>R conductance modulation, with benzodiazepines being anti-seizure at low EGABA and ineffective or pro-seizure at high EGABA. The SE-like activity and EGABA depended on a non-linear relationship between the strength of Cl<sup>-</sup> extrusion and GABA<sub>A</sub>R conductance, but not on the initial EGABA of neurons. Independently controlling Cl<sup>-</sup> extrusion in the pyramidal and interneuronal cell populations revealed the critical role of pyramidal cell Cl<sup>-</sup> extrusion in determining the severity of SE activity and the response to simulated benzodiazepine application. Finally, we demonstrate the model’s utility for considering improved therapeutic approaches for terminating SE in the clinic.
 
 ## Dependencies
 
