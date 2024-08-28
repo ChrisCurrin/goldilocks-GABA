@@ -5,7 +5,8 @@ Helper visualisation methods
 import logging
 
 import brian2.numpy_ as np
-from brian2.units import ms, mV, uS, nS, pA, Quantity
+import seaborn as sns
+from brian2.units import Quantity, ms, mV, nS, pA, uS
 from brian2tools import plot_rate
 from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
@@ -143,12 +144,11 @@ def activity_plot(
         ax[-1].set_xbound(0, sp_all.t[-1] / time_unit)
 
     logger.info("Adjust")
-    adjust_spines(ax[1:], ["left"], sharedx=True)
-
-    spines = ["left"]
-    if is_new_ax:
-        spines += ["bottom"]
-    adjust_spines(ax[-1], spines, sharedx=True)
+    for _ax in ax[:-1]:
+        sns.despine(ax=_ax, top=True, right=True, left=False, bottom=True)
+        _ax.set_xlabel("")
+    sns.despine(ax=ax[-1], top=True, right=True, left=False, bottom=False)
+    ax[-1].set_xlabel("Time (s)")
     align_axes(ax)
     return fig, ax
 
@@ -199,7 +199,7 @@ def simple_activity_plot(r_all, r_E, r_I, state_mon, time_unit=ms, ax=None, fig=
         ha="center",
         va="center",
     )
-    adjust_spines(ax[0], [])
+    sns.despine(ax=ax[0], top=True, right=True, left=True, bottom=True)
 
     logger.info("Population rates")
     # Population rates
@@ -221,12 +221,11 @@ def simple_activity_plot(r_all, r_E, r_I, state_mon, time_unit=ms, ax=None, fig=
     ax[-1].set_xbound(0, state_mon.t[-1] / time_unit)
 
     logger.info("Adjust")
-    adjust_spines(ax[1:], ["left"], sharedx=True)
-
-    spines = ["left"]
-    if new_ax:
-        spines += ["bottom"]
-    adjust_spines(ax[-1], spines, sharedx=True)
+    for _ax in ax[:-1]:
+        sns.despine(ax=_ax, top=True, right=True, left=False, bottom=True)
+        _ax.set_xlabel("")
+    sns.despine(ax=ax[-1], top=True, right=True, left=False, bottom=False)
+    ax[-1].set_xlabel("Time (s)")
     align_axes(ax)
     return fig, ax
 
@@ -256,7 +255,6 @@ def plot_hierarchy(
             1,  # synapse
             1,  # neuron
             1,  # raster
-            1,  # spectrogram
             1,  # population rate
         ]
         fig, ax = plt.subplots(
@@ -269,7 +267,7 @@ def plot_hierarchy(
     else:
         assert fig is not None
 
-    ax_syn, ax_neuron, ax_raster, ax_spec, ax_pop = ax
+    ax_syn, ax_neuron, ax_raster, ax_pop = ax
 
     var_attrs = {
         "v": {"name": "V", "color": COLOR.K, "lw": 0.1},
@@ -371,22 +369,14 @@ def plot_hierarchy(
             rasterized=settings.RASTERIZED,
         )
         # ax_pop.legend(["Excitatory population", "Inhibitory population", "Average"], frameon=False,)
-
-    if hasattr(state_mon, "v"):
-        # Spectrogram
-        plot_spectrogram(
-            state_mon.I_GABA_rec.mean(axis=0), ax=ax_spec, time_unit=time_unit
-        )
-
     logger.info("Adjust")
-    adjust_spines(ax[:-1], ["left"], sharedx=True)
-
-    spines = ["left"]
-    if is_new_ax:
-        spines += ["bottom"]
-    adjust_spines(ax[-1], spines, sharedx=True)
+    for _ax in ax[:-1]:
+        sns.despine(ax=_ax, top=True, right=True, left=False, bottom=True)
+        _ax.set_xlabel("")
+    sns.despine(ax=ax[-1], top=True, right=True, left=False, bottom=False)
     ax[-1].set_xbound(0, r_all.t[-1] / time_unit)
     align_axes(ax)
+    ax[-1].set_xlabel("Time (s)")
     return fig, ax
 
 
@@ -627,7 +617,7 @@ def plot_states(
             rasterized=settings.RASTERIZED,
         )
     ax_syn_var.legend()
-    adjust_spines(ax_syn_var_u, ["right"], sharedx=True)
+    sns.despine(ax=ax_syn_var, top=True, right=False, left=True, bottom=True)
 
     if ax_syn_var == ax_syn_var_u:
         ax_syn_var.set(ylim=(-0.05, 1.05), ylabel="$x_S$ (-x-) $u_S$ (--•--)")
@@ -640,10 +630,10 @@ def plot_states(
     ax_w.set(ylabel="W")
 
     # Adjust axis
-    adjust_spines(ax[:-1], ["left"], sharedx=True)
-    spines = ["left"]
-    if new_ax:
-        spines += ["bottom"]
-    adjust_spines(ax[-1], spines, sharedx=True)
+    for _ax in ax[:-1]:
+        sns.despine(ax=_ax, top=True, right=True, left=False, bottom=True)
+        _ax.set_xlabel("")
+    sns.despine(ax=ax[-1], top=True, right=True, left=False, bottom=False)
+    ax[-1].set_xlabel("Time (s)")
     align_axes(ax)
     return fig, ax

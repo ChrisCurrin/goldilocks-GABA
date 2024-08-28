@@ -40,3 +40,8 @@
 Option 1: Run the cells in the notebook and click "Run" for the widgets
 
 Option 2: Run each file in script
+
+
+## Downloading the data to `temp`
+
+[`files`](https://osf.io/wg7tx/files/osfstorage)

@@ -170,6 +170,7 @@ class LRDFigure(object):
             path = os.path.join("temp", self.sim_name + ".h5")
         if not os.path.exists(path):
             return False
+        logger.debug(f"loading file {path}")
         if save_dest is None:
             # save to object itself
             save_dest = self.__dict__
@@ -466,7 +467,6 @@ class MultiRunFigure(LRDFigure):
                 file_name = os.path.join("temp", sim_name + ".h5")
                 save_dests.setdefault(run_key, {})
                 self.load_variables(file_name, save_dest=save_dests[run_key])
-
         # try load all the results from a single dataframe
         if os.path.isfile(vaex_fname) and use_vaex:
             import vaex  # noqa

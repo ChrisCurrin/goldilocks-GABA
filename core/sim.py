@@ -588,18 +588,20 @@ def single_run(
 
     if __plot:
         from style.plot_group import activity_plot, plot_hierarchy, plot_states
-
-        plot_hierarchy(N, N_E, sp_all, r_all, r_E, r_I, state_mon, V_thr, nrn_idx=[0, 1], time_unit=second)
-
-        activity_plot(
-            N, N_E, sp_all, r_all, r_E, r_I, mg2_mon, state_mon, 
-            zero_mag_onset_t=zero_mag_onset_t, zero_mag_off_t=zero_mag_off_t, zero_mag_wash_rate=zero_mag_wash_rate, time_unit=second,
-        )
+        print("plotting - hierarchy")
+        plot_hierarchy(N, N_E, sp_all, r_all, r_E, r_I, state_mon, V_thr, nrn_idx=nrn_idx, time_unit=second)
+        # print("plotting - activity")
+        # activity_plot(
+        #     N, N_E, sp_all, r_all, r_E, r_I, mg2_mon, state_mon, 
+        #     zero_mag_onset_t=zero_mag_onset_t, zero_mag_off_t=zero_mag_off_t, zero_mag_wash_rate=zero_mag_wash_rate, time_unit=second,
+        # )
+        print("plotting - states")
         plot_states(
             state_mon, [synapse_mon_cee, synapse_mon_cie, synapse_mon_cei, synapse_mon_cii], 
             V_thr, V_reset, sp_all, tau_d, tau_f,
             nrn_idx=nrn_idx, nrn_idx_type=nrn_idx_type, time_unit=second,
         )
+        print("plotted")
 
     return magic_network, dict(locals())
 
